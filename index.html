@@ -322,6 +322,99 @@ main{min-width:0;padding-bottom:calc(var(--tab-bar-h) + 8px)}
     padding-top:calc(20px + env(safe-area-inset-top,44px)) !important;
   }
 }
+
+/* ===== APPLE-STYLE ANIMATIONS ===== */
+@keyframes springIn{
+  0%{opacity:0;transform:scale(0.92) translateY(20px)}
+  60%{opacity:1;transform:scale(1.02) translateY(-2px)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+@keyframes pop{
+  0%{transform:scale(1)}
+  50%{transform:scale(0.94)}
+  100%{transform:scale(1)}
+}
+@keyframes checkBounce{
+  0%{transform:scale(0)}
+  60%{transform:scale(1.2)}
+  100%{transform:scale(1)}
+}
+@keyframes slideUpFade{
+  from{opacity:0;transform:translateY(12px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  75%{transform:translateX(4px)}
+}
+
+/* Apply spring entrance to cards */
+.card{animation:slideUpFade 0.4s cubic-bezier(0.16,1,0.3,1) both}
+.card.clickable{transition:transform 0.15s cubic-bezier(0.16,1,0.3,1),box-shadow 0.2s,opacity 0.2s}
+.card.clickable:active{transform:scale(0.97);transition:transform 0.1s ease-out}
+
+/* Tab bar: spring active state */
+.tab-btn{transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+.tab-btn.active .tico{animation:pop 0.3s ease-out}
+
+/* Buttons: bouncy active */
+.btn{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1),background 0.2s,opacity 0.2s,filter 0.2s,box-shadow 0.2s}
+.btn:active{transform:scale(0.94);transition:transform 0.08s ease-out}
+.btn.primary:active,.btn.green:active,.btn.red:active,.btn.orange:active{filter:brightness(0.92)}
+
+/* Modal: smoother slide */
+@keyframes modalSlide{
+  from{opacity:0;transform:translateY(80px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.modal{animation:modalSlide 0.42s cubic-bezier(0.32,0.72,0.18,1) both}
+.modal-bg{animation:fadeIn 0.25s ease-out both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Toggle / checkbox bounce on check */
+.todo-check.done svg,
+button[style*="background:var(--green)"] svg{
+  animation:checkBounce 0.3s cubic-bezier(0.34,1.56,0.64,1)
+}
+
+/* Toast: smoother */
+.toast{animation:springIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both}
+
+/* Sidebar items: hover smoothness */
+.sb-item{transition:background 0.2s var(--ease),color 0.2s,transform 0.15s}
+.sb-item:active{transform:translateX(2px)}
+
+/* List rows: tap feedback */
+.list-row,.todo-item,.habit-row{transition:background 0.15s var(--ease)}
+.list-row:active,.todo-item:active,.habit-row:active{background:var(--bg-pressed) !important}
+
+/* Field focus: smoother glow */
+.input:focus,.field input:focus,.field textarea:focus,.field select:focus{
+  box-shadow:0 0 0 3px var(--blue-d);
+  transition:border-color 0.2s,box-shadow 0.2s;
+}
+
+/* Smooth view transitions */
+@keyframes viewEnter{
+  from{opacity:0;transform:translateY(8px) scale(0.99)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+/* Pulse animation for active fair indicator */
+@keyframes livePulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.8;transform:scale(1.08)}
+}
+[style*="🔴"]{display:inline-block}
+
+/* Smooth scroll on iOS */
+html,body{-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+
+/* Subtle shadow lift on hover (desktop only) */
+@media(hover:hover){
+  .card.clickable:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+}
 </style>
 </head>
 <body>
@@ -354,7 +447,7 @@ main{min-width:0;padding-bottom:calc(var(--tab-bar-h) + 8px)}
 
 <script>
 "use strict";
-const STORE_KEY="hansos_v61";
+const STORE_KEY="hansos_v62";
 
 const DEFAULT_PRODUCTS=[
 {name:"HC Ojo Turco Azul",price:7500},{name:"HC Ojo Turco Rojo",price:7500},{name:"HC Ojo Turco Rainbow",price:7500},
@@ -389,9 +482,8 @@ copy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2
 check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
 flame:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg>`,
 zap:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-zap:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
 trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>`,
-};
+menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>`};
 
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,10)}
 const pad=n=>String(n).padStart(2,"0");
@@ -444,7 +536,7 @@ function activeCh(){return state.challenges.find(c=>c.active&&c.endDate>=today()
 
 function el(tag,attrs={},...ch){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(v==null||v===false)continue;if(k==="class")e.className=v;else if(k==="html")e.innerHTML=v;else if(k==="style"&&typeof v==="object")Object.assign(e.style,v);else if(k.startsWith("on")&&typeof v==="function")e.addEventListener(k.slice(2),v);else if(v===true)e.setAttribute(k,"");else e.setAttribute(k,v)}for(const c of ch.flat()){if(c==null||c===false)continue;if(typeof c==="string"||typeof c==="number")e.appendChild(document.createTextNode(String(c)));else e.appendChild(c)}return e}
 function svg(s){const d=document.createElement("div");d.innerHTML=s;return d.firstChild}
-function toast(m,k="ok"){const t=el("div",{class:"toast"},m);if(k==="error")t.style.background="rgba(255,59,48,0.95)";if(k==="success")t.style.background="rgba(52,199,89,0.95)";document.getElementById("toasts").appendChild(t);setTimeout(()=>{t.style.opacity="0";t.style.transition="all 0.25s";setTimeout(()=>t.remove(),280)},2400)}
+function toast(m,k="ok"){if(k==="success")haptic("success");else if(k==="error")haptic("error");const t=el("div",{class:"toast"},m);if(k==="error")t.style.background="rgba(255,59,48,0.95)";if(k==="success")t.style.background="rgba(52,199,89,0.95)";document.getElementById("toasts").appendChild(t);setTimeout(()=>{t.style.opacity="0";t.style.transition="all 0.25s";setTimeout(()=>t.remove(),280)},2400)}
 function openModal(r){const bg=document.getElementById("modal-bg");const c=document.getElementById("modal-content");c.innerHTML="";c.appendChild(r(closeModal));bg.classList.add("open")}
 function closeModal(){document.getElementById("modal-bg").classList.remove("open")}
 document.getElementById("modal-bg").addEventListener("click",e=>{if(e.target.id==="modal-bg")closeModal()});
@@ -461,10 +553,71 @@ function renderSidebar(){
     sb.appendChild(el("button",{class:"sb-item"+(id===currentView?" active":""),onclick:()=>navigate(id)},el("span",{class:"icon",html:icon}),el("span",{class:"lbl"},l)));
   });
 }
+function haptic(type="light"){
+  if(navigator.vibrate){
+    if(type==="light")navigator.vibrate(10);
+    else if(type==="medium")navigator.vibrate(20);
+    else if(type==="success")navigator.vibrate([10,30,10]);
+    else if(type==="error")navigator.vibrate([20,40,20,40,20]);
+  }
+}
+
 function renderTabBar(){
   const tb=document.getElementById("tab-bar");tb.innerHTML="";
-  [["hoy","Hoy",I.home],["tareas","To-Do",I.list],["habitos","Hábitos",I.habits],["finanzas","Dinero",I.money],["ferias","Ferias",I.bag]].forEach(([id,l,icon])=>{
-    tb.appendChild(el("button",{class:"tab-btn"+(id===currentView?" active":""),onclick:()=>navigate(id)},el("div",{class:"tico",html:icon}),el("span",{},l)));
+  const moreViews=["vdl","metas","ajustes"];
+  const inMore=moreViews.includes(currentView);
+  const tabs=[
+    ["hoy","Hoy",I.home],
+    ["tareas","To-Do",I.list],
+    ["habitos","Hábitos",I.habits],
+    ["finanzas","Dinero",I.money],
+    ["ferias","Ferias",I.bag],
+    ["__more__","Más",I.menu||I.settings]
+  ];
+  tabs.forEach(([id,l,icon])=>{
+    const isActive=id==="__more__"?inMore:(id===currentView);
+    tb.appendChild(el("button",{
+      class:"tab-btn"+(isActive?" active":""),
+      onclick:()=>{
+        haptic("light");
+        if(id==="__more__")openMoreSheet();
+        else navigate(id);
+      }
+    },
+      el("div",{class:"tico",html:icon}),
+      el("span",{},l)
+    ));
+  });
+}
+
+function openMoreSheet(){
+  openModal(close=>{
+    const w=el("div");
+    w.appendChild(el("div",{class:"modal-head"},
+      el("span",{class:"modal-title"},"Más"),
+      el("button",{class:"btn-icon",onclick:close,html:I.close})
+    ));
+    const body=el("div",{class:"modal-body"});
+    const items=[
+      ["vdl","VDL Tracker","Calendario de horas trabajadas",I.clock,"var(--teal)"],
+      ["metas","Metas & Retos","Objetivos y challenges",I.target,"var(--purple)"],
+      ["ajustes","Configuración","Sync, balances, tema",I.settings,"var(--text-secondary)"]
+    ];
+    items.forEach(([id,title,desc,icon,color])=>{
+      body.appendChild(el("button",{
+        style:"display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--bg-elevated);border-radius:16px;width:100%;text-align:left;box-shadow:var(--shadow-sm);transition:transform 0.15s var(--ease);min-height:64px;",
+        onclick:()=>{haptic("light");close();navigate(id)}
+      },
+        el("div",{style:`width:42px;height:42px;border-radius:12px;background:${color}20;color:${color};display:grid;place-items:center;flex-shrink:0;`,html:icon}),
+        el("div",{style:"flex:1;min-width:0;"},
+          el("div",{style:"font-size:16px;font-weight:600;letter-spacing:-0.01em;"},title),
+          el("div",{style:"font-size:13px;color:var(--text-secondary);margin-top:2px;"},desc)
+        ),
+        el("div",{style:"color:var(--text-tertiary);width:18px;height:18px;",html:I.chevron})
+      ));
+    });
+    w.appendChild(body);
+    return w;
   });
 }
 
@@ -547,7 +700,7 @@ views.hoy=()=>{
     [...state.habits].sort((a,b)=>(b.mustDo?1:0)-(a.mustDo?1:0)).forEach(h=>{
       const done=hDone(h,td);
       chips.appendChild(el("button",{style:`display:inline-flex;align-items:center;gap:5px;padding:8px 14px;font-size:13px;font-weight:600;border-radius:100px;background:${done?"var(--green)":"var(--bg-hover)"};color:${done?"#fff":"var(--text)"};transition:all 0.15s;`,onclick:()=>{
-        if(h.numericTarget)openNumModal(h);else{if(done)delete h.log[td];else{if(!h.log)h.log={};h.log[td]=true}save();navigate("hoy")}
+        if(h.numericTarget)openNumModal(h);else{if(done)delete h.log[td];else{if(!h.log)h.log={};h.log[td]=true;haptic("success")}save();navigate("hoy")}
       }},h.icon+" "+h.name,h.mustDo?el("span",{style:"font-size:10px;opacity:0.8;"},"★"):null));
     });
     hc.appendChild(chips);body.appendChild(hc);
@@ -606,6 +759,7 @@ views.tareas=()=>{
       const row=el("div",{style:`display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:0.5px solid var(--separator);cursor:pointer;transition:background 0.15s;background:${t.done?"var(--bg-hover)":"var(--bg-elevated)"}`,
         onclick:()=>{
           t.done=!t.done;
+          if(t.done) haptic("success"); else haptic("light");
           if(linkedH){if(t.done){if(!linkedH.log)linkedH.log={};linkedH.log[td]=true}else delete linkedH.log[td]}
           save();navigate("tareas");
         }
