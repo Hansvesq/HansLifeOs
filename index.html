@@ -116,6 +116,210 @@
 
     /* float +1 */
     .floater { position: absolute; pointer-events: none; animation: float-up .8s ease-out forwards; font-weight: 600; }
+
+    /* =========================================================
+       SISTEMA VISUAL DINÁMICO
+       ========================================================= */
+
+    /* Easings tipo Apple */
+    :root {
+      --ease-spring: cubic-bezier(.34,1.56,.64,1);
+      --ease-out:    cubic-bezier(.16,1,.3,1);
+      --ease-soft:   cubic-bezier(.32,.72,0,1);
+    }
+
+    /* Tipografía con escalas mobile más generosas */
+    @media (max-width: 640px) {
+      .text-3xl { font-size: 1.75rem; line-height: 1.1; }
+      .text-4xl { font-size: 2.25rem; line-height: 1.05; }
+      .text-5xl { font-size: 2.75rem; line-height: 1; }
+      .text-6xl { font-size: 3.5rem; line-height: 1; }
+    }
+
+    /* Scroll iOS-like */
+    html, body { overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; }
+    main { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+
+    /* Mesh gradient backgrounds (sutiles, decorativos) */
+    .mesh-blue {
+      background-image:
+        radial-gradient(at 12% 18%, rgba(10,132,255,.18) 0, transparent 45%),
+        radial-gradient(at 88% 22%, rgba(94,92,230,.16) 0, transparent 50%),
+        radial-gradient(at 50% 95%, rgba(255,55,95,.10) 0, transparent 55%);
+    }
+    .mesh-orange {
+      background-image:
+        radial-gradient(at 8% 8%, rgba(255,159,10,.20) 0, transparent 50%),
+        radial-gradient(at 92% 92%, rgba(255,69,58,.14) 0, transparent 50%);
+    }
+    .mesh-green {
+      background-image:
+        radial-gradient(at 8% 100%, rgba(48,209,88,.22) 0, transparent 60%),
+        radial-gradient(at 100% 0%, rgba(100,210,255,.14) 0, transparent 50%);
+    }
+    .mesh-purple {
+      background-image:
+        radial-gradient(at 0% 0%, rgba(94,92,230,.20) 0, transparent 55%),
+        radial-gradient(at 100% 100%, rgba(191,90,242,.18) 0, transparent 55%);
+    }
+    .mesh-pink {
+      background-image:
+        radial-gradient(at 100% 0%, rgba(255,55,95,.18) 0, transparent 55%),
+        radial-gradient(at 0% 100%, rgba(255,159,10,.14) 0, transparent 55%);
+    }
+    .dark .mesh-blue   { background-image: radial-gradient(at 12% 18%, rgba(10,132,255,.28) 0, transparent 45%), radial-gradient(at 88% 22%, rgba(94,92,230,.24) 0, transparent 50%), radial-gradient(at 50% 95%, rgba(255,55,95,.18) 0, transparent 55%); }
+    .dark .mesh-orange { background-image: radial-gradient(at 8% 8%, rgba(255,159,10,.30) 0, transparent 50%), radial-gradient(at 92% 92%, rgba(255,69,58,.20) 0, transparent 50%); }
+    .dark .mesh-green  { background-image: radial-gradient(at 8% 100%, rgba(48,209,88,.30) 0, transparent 60%), radial-gradient(at 100% 0%, rgba(100,210,255,.20) 0, transparent 50%); }
+    .dark .mesh-purple { background-image: radial-gradient(at 0% 0%, rgba(94,92,230,.30) 0, transparent 55%), radial-gradient(at 100% 100%, rgba(191,90,242,.26) 0, transparent 55%); }
+    .dark .mesh-pink   { background-image: radial-gradient(at 100% 0%, rgba(255,55,95,.26) 0, transparent 55%), radial-gradient(at 0% 100%, rgba(255,159,10,.20) 0, transparent 55%); }
+
+    /* Tarjeta con highlight de borde superior (estilo iOS card) */
+    .card-shine {
+      position: relative;
+      overflow: hidden;
+    }
+    .card-shine::before {
+      content:''; position:absolute; inset:0 0 auto 0; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+      pointer-events:none;
+    }
+    .dark .card-shine::before { background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); }
+
+    /* Halo (glow) para elementos importantes */
+    .halo-orange { box-shadow: 0 0 0 1px rgba(255,159,10,.3), 0 8px 28px rgba(255,159,10,.18); }
+    .halo-blue   { box-shadow: 0 0 0 1px rgba(10,132,255,.3), 0 8px 28px rgba(10,132,255,.18); }
+    .halo-green  { box-shadow: 0 0 0 1px rgba(48,209,88,.3), 0 8px 28px rgba(48,209,88,.18); }
+    .halo-purple { box-shadow: 0 0 0 1px rgba(94,92,230,.3), 0 8px 28px rgba(94,92,230,.20); }
+
+    /* Animación de respiración para la racha */
+    @keyframes breathe {
+      0%,100% { transform: scale(1);   filter: drop-shadow(0 0 6px rgba(255,159,10,.45)); }
+      50%     { transform: scale(1.08);filter: drop-shadow(0 0 14px rgba(255,159,10,.85)); }
+    }
+    .breathe { animation: breathe 2.6s ease-in-out infinite; }
+
+    /* Gradient text utility */
+    .grad-text-blue   { background: linear-gradient(135deg,#0A84FF,#5E5CE6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .grad-text-warm   { background: linear-gradient(135deg,#FF9F0A,#FF453A); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .grad-text-cool   { background: linear-gradient(135deg,#30D158,#64D2FF); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .grad-text-purple { background: linear-gradient(135deg,#5E5CE6,#FF375F); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+    /* View transitions: slide horizontal entre vistas */
+    @keyframes slideFromRight { from { opacity:0; transform: translateX(24px); } to { opacity:1; transform:none; } }
+    .view-enter { animation: slideFromRight .42s var(--ease-out) both; }
+
+    /* Pulso decorativo */
+    @keyframes softPulse {
+      0%, 100% { opacity: .55; transform: scale(1); }
+      50%      { opacity: 1;   transform: scale(1.18); }
+    }
+    .soft-pulse { animation: softPulse 2.4s ease-in-out infinite; }
+
+    /* Spring scale al press */
+    .press-spring { transition: transform .2s var(--ease-spring); }
+    .press-spring:active { transform: scale(.94); }
+
+    /* Lift on hover (only for pointer devices) */
+    @media (hover: hover) {
+      .lift-hover { transition: transform .25s var(--ease-out), box-shadow .25s var(--ease-out); }
+      .lift-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+      .dark .lift-hover:hover { box-shadow: 0 10px 30px rgba(0,0,0,.55); }
+    }
+
+    /* Tap target mínimos en mobile */
+    @media (max-width: 640px) {
+      button, [role="button"], a.button { min-height: 44px; }
+    }
+
+    /* Bottom nav refinado para mobile */
+    .tabbar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      background: rgba(255,255,255,.78);
+      backdrop-filter: saturate(180%) blur(24px);
+      -webkit-backdrop-filter: saturate(180%) blur(24px);
+      border-top: 1px solid rgba(0,0,0,.06);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .dark .tabbar {
+      background: rgba(10,10,10,.78);
+      border-top-color: rgba(255,255,255,.08);
+    }
+    .tabbar-grid { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; padding: 6px 4px 4px; }
+    .tabbar-pill {
+      position: absolute; top: 4px; bottom: 4px; width: calc(100%/7);
+      background: rgba(0,0,0,.06);
+      border-radius: 14px;
+      transition: transform .42s var(--ease-spring);
+      pointer-events: none;
+    }
+    .dark .tabbar-pill { background: rgba(255,255,255,.08); }
+    .tabbar-btn {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 0;
+      color: var(--tw-text-tertiary, rgb(161,161,170));
+      transition: color .2s var(--ease-out);
+      -webkit-tap-highlight-color: transparent;
+      z-index: 1;
+    }
+    .tabbar-btn[data-active="true"] { color: #0a0a0a; }
+    .dark .tabbar-btn[data-active="true"] { color: #ffffff; }
+    .tabbar-btn span { font-size: 9.5px; font-weight: 600; letter-spacing: -.005em; }
+    @media (max-width: 360px) { .tabbar-btn span { display: none; } }
+
+    /* Top nav desktop con indicador deslizante */
+    .topnav { position: relative; }
+    .topnav-pill {
+      position: absolute; top: 0; bottom: 0;
+      background: rgb(244,244,245);
+      border-radius: 12px;
+      transition: transform .42s var(--ease-spring), width .42s var(--ease-spring), opacity .25s;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .dark .topnav-pill { background: rgb(28,28,30); }
+    .topnav-btn { position: relative; z-index: 1; }
+
+    /* Tabs animadas con indicador */
+    .tabs-wrap { position: relative; display: inline-flex; padding: 4px; background: rgb(244,244,245); border-radius: 14px; }
+    .dark .tabs-wrap { background: rgb(28,28,30); }
+    .tabs-pill {
+      position: absolute; top: 4px; bottom: 4px; left: 0;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.06);
+      transition: transform .42s var(--ease-spring), width .42s var(--ease-spring);
+      z-index: 0;
+    }
+    .dark .tabs-pill { background: rgb(58,58,60); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+    .tabs-btn { position: relative; z-index: 1; padding: 6px 14px; font-size: 13px; font-weight: 600; color: rgb(115,115,115); transition: color .2s; -webkit-tap-highlight-color: transparent; }
+    .tabs-btn[data-active="true"] { color: #0a0a0a; }
+    .dark .tabs-btn { color: rgb(161,161,170); }
+    .dark .tabs-btn[data-active="true"] { color: #ffffff; }
+
+    /* Glow ring para checkboxes completados */
+    @keyframes ringPop {
+      0%   { transform: scale(.5); opacity: 0; }
+      50%  { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .ring-pop { animation: ringPop .35s var(--ease-spring); }
+
+    /* Stagger acentuado para mobile */
+    .stagger-fast > * { animation: fadeIn .28s var(--ease-out) both; }
+    .stagger-fast > *:nth-child(1) { animation-delay: .02s; }
+    .stagger-fast > *:nth-child(2) { animation-delay: .06s; }
+    .stagger-fast > *:nth-child(3) { animation-delay: .10s; }
+    .stagger-fast > *:nth-child(4) { animation-delay: .14s; }
+    .stagger-fast > *:nth-child(5) { animation-delay: .18s; }
+    .stagger-fast > *:nth-child(6) { animation-delay: .22s; }
+    .stagger-fast > *:nth-child(7) { animation-delay: .26s; }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
 <body class="font-sans text-ink dark:text-white">
@@ -586,32 +790,33 @@
     const stale = !last || (Date.now() - last) > 5 * 3600 * 1000; // >5h
     const e = cur ? ENERGY_BY_ID[cur] : null;
 
-    const set = (level) => {
-      actions.setEnergy(level);
-      SoundFX.tap();
-    };
+    const set = (level) => { actions.setEnergy(level); SoundFX.tap(); vibrate(8); };
+
+    const accent = (e && !stale) ? e.color : null;
 
     return (
-      <Card className="p-5 anim-scale-in">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-            Energía {e && !stale && <span className="ml-1 normal-case tracking-normal" style={{color:e.color}}>· {e.label}</span>}
+      <Card className="p-5 anim-scale-in card-shine relative overflow-hidden"
+            style={accent ? { backgroundImage: `radial-gradient(120% 80% at 0% 0%, ${accent}1c, transparent 55%), radial-gradient(120% 80% at 100% 100%, ${accent}10, transparent 55%)` } : undefined}>
+        <div className="flex items-center justify-between mb-3 relative">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-2">
+            <Icon name="zap" size={14}/> Energía
+            {e && !stale && <span className="normal-case tracking-normal font-bold" style={{color:e.color}}>· {e.label}</span>}
           </div>
           {last && <div className="text-[11px] text-zinc-400">{stale ? 'desactualizada' : 'hace ' + Math.round((Date.now()-last)/60000) + ' min'}</div>}
         </div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-5 gap-1.5 relative">
           {ENERGY_LEVELS.map(lv => {
             const active = cur === lv.id && !stale;
             return (
               <button key={lv.id} onClick={()=>set(lv.id)}
-                      className={`press py-2 rounded-xl text-[11px] font-semibold transition ${active ? 'text-white shadow-soft' : 'bg-paper-softer dark:bg-ink-softer hover:bg-zinc-200 dark:hover:bg-ink-soft'}`}
-                      style={active ? { background: lv.color } : undefined}>
+                      className={`press-spring py-2.5 rounded-xl text-[11px] font-semibold transition ${active ? 'text-white' : 'bg-paper-softer dark:bg-ink-softer hover:bg-zinc-200 dark:hover:bg-ink-soft'}`}
+                      style={active ? { background: `linear-gradient(135deg, ${lv.color}, ${lv.color}cc)`, boxShadow: `0 6px 20px ${lv.color}55` } : undefined}>
                 {lv.label}
               </button>
             );
           })}
         </div>
-        <p className="mt-3 text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed min-h-[2.6em]">
+        <p className="mt-3 text-[13px] text-zinc-600 dark:text-zinc-300 leading-relaxed min-h-[2.6em] relative">
           {e && !stale ? e.tip : 'Marcá tu energía actual y la app te dice qué tipo de tarea hacer.'}
         </p>
       </Card>
@@ -736,22 +941,24 @@
     if (!plan || (!plan.intention && plan.priorities.length === 0)) return null;
 
     return (
-      <Card className="p-5 anim-scale-in">
-        <div className="flex items-start justify-between gap-3">
+      <Card className="p-5 anim-scale-in card-shine relative overflow-hidden mesh-purple">
+        <div className="flex items-start justify-between gap-3 relative">
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Esta semana</div>
-            {plan.intention && <h3 className="mt-2 text-lg font-semibold leading-snug">"{plan.intention}"</h3>}
+            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1.5">
+              <Icon name="sparkles" size={12} className="text-accent-purple"/> Esta semana
+            </div>
+            {plan.intention && <h3 className="mt-2 text-lg sm:text-xl font-semibold leading-snug grad-text-purple">"{plan.intention}"</h3>}
           </div>
-          <button onClick={openRitual} className="press text-xs text-zinc-500 hover:text-ink dark:hover:text-white shrink-0 inline-flex items-center gap-1">
+          <button onClick={openRitual} className="press-spring text-xs text-zinc-500 hover:text-ink dark:hover:text-white shrink-0 inline-flex items-center gap-1">
             <Icon name="pencil" size={12}/> editar
           </button>
         </div>
         {plan.priorities.length > 0 && (
-          <ol className="mt-4 space-y-2">
+          <ol className="mt-4 space-y-2 relative">
             {plan.priorities.map((p, i) => (
               <li key={i} className="flex items-center gap-3 text-[14px]">
-                <span className="h-6 w-6 shrink-0 grid place-items-center rounded-full bg-paper-softer dark:bg-ink-softer text-xs font-semibold">{i+1}</span>
-                <span className="truncate">{p}</span>
+                <span className="h-7 w-7 shrink-0 grid place-items-center rounded-full text-xs font-bold text-white" style={{background:'linear-gradient(135deg,#5E5CE6,#FF375F)'}}>{i+1}</span>
+                <span className="truncate font-medium">{p}</span>
               </li>
             ))}
           </ol>
@@ -865,6 +1072,30 @@
   function AreaPill({ areaId, className='' }) {
     const a = AREA_BY_ID[areaId]; if (!a) return null;
     return <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-medium ${className}`} style={{background:a.accent+'1f',color:a.accent}}><Icon name={a.icon} size={12}/>{a.name}</span>;
+  }
+
+  function Tabs({ items, value, onChange, className = '' }) {
+    const wrapRef = useRef(null);
+    const [pill, setPill] = useState({ left: 4, width: 0, ready: false });
+    useEffect(() => {
+      const idx = Math.max(0, items.findIndex(i => i.value === value));
+      const btns = wrapRef.current?.querySelectorAll('button');
+      const btn = btns?.[idx];
+      if (!btn) return;
+      const wrap = wrapRef.current.getBoundingClientRect();
+      const r = btn.getBoundingClientRect();
+      setPill({ left: r.left - wrap.left, width: r.width, ready: true });
+    }, [value, items.length]);
+    return (
+      <div ref={wrapRef} className={`tabs-wrap ${className}`}>
+        <span className="tabs-pill" style={{ transform: `translateX(${pill.left}px)`, width: pill.width, opacity: pill.ready ? 1 : 0 }}/>
+        {items.map(it => (
+          <button key={it.value} data-active={value===it.value}
+                  onClick={()=>{ if (value!==it.value) { SoundFX.tap(); onChange(it.value); } }}
+                  className="tabs-btn press-spring">{it.label}</button>
+        ))}
+      </div>
+    );
   }
 
   function CountUp({ value, format = (n)=>n, duration = 600 }) {
@@ -1014,23 +1245,31 @@
     const handleToggle = (e) => {
       const willDone = !done;
       onToggle();
-      if (willDone) { SoundFX.check(); vibrate(8); ringRef.current?.classList.add('anim-pop'); setTimeout(()=>ringRef.current?.classList.remove('anim-pop'), 350); }
-      else SoundFX.uncheck();
+      if (willDone) {
+        SoundFX.check(); vibrate(10);
+        ringRef.current?.classList.add('ring-pop');
+        setTimeout(()=>ringRef.current?.classList.remove('ring-pop'), 380);
+      } else SoundFX.uncheck();
     };
     return (
-      <div className={`group flex items-center gap-3 p-3 rounded-2xl transition ${done ? '' : 'bg-paper-softer dark:bg-ink-softer hover:bg-zinc-200/60 dark:hover:bg-ink-soft'}`} style={done ? {background: a.accent+'14'} : undefined}>
-        <button ref={ringRef} onClick={handleToggle} className={`press h-7 w-7 shrink-0 grid place-items-center rounded-full transition border-2 ${done ? 'border-transparent text-white' : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-zinc-400'}`} style={done ? {background:a.accent} : undefined}>
-          <Icon name="check" size={14}/>
+      <div className={`group flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl transition relative overflow-hidden ${done ? '' : 'bg-paper-softer dark:bg-ink-softer hover:bg-zinc-200/60 dark:hover:bg-ink-soft active:scale-[.99]'}`}
+           style={done ? { background: `linear-gradient(135deg, ${a.accent}1f, ${a.accent}08)` } : undefined}>
+        <button ref={ringRef} onClick={handleToggle}
+                className={`press-spring h-8 w-8 sm:h-7 sm:w-7 shrink-0 grid place-items-center rounded-full transition border-2 ${done ? 'border-transparent text-white' : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-zinc-400'}`}
+                style={done ? { background: `linear-gradient(135deg, ${a.accent}, ${a.accent}cc)`, boxShadow: `0 4px 14px ${a.accent}55` } : undefined}>
+          <Icon name="check" size={16}/>
         </button>
         <div className="min-w-0 flex-1">
           <div className={`text-[15px] font-medium truncate ${done ? 'line-through opacity-60' : ''}`}>{kind === 'habit' ? item.name : item.text}</div>
-          <div className="text-xs text-zinc-500 truncate flex items-center gap-1.5">
-            <Icon name={a.icon} size={11} className="opacity-60"/> {a.name}
-            {kind === 'habit' && <span className="opacity-60">· hábito</span>}
+          <div className="text-[11px] text-zinc-500 truncate flex items-center gap-1.5 mt-0.5">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold" style={{background: a.accent+'1a', color: a.accent}}>
+              <Icon name={a.icon} size={10}/> {a.name}
+            </span>
+            {kind === 'habit' && <span className="text-zinc-400">· hábito</span>}
           </div>
         </div>
-        {onEdit && <button onClick={()=>{SoundFX.tap(); onEdit();}} className="opacity-0 group-hover:opacity-100 transition press h-8 w-8 grid place-items-center rounded-xl hover:bg-paper-softer dark:hover:bg-ink-soft text-zinc-400"><Icon name="pencil" size={14}/></button>}
-        {onDelete && <button onClick={()=>{ if (confirm(kind==='habit' ? '¿Eliminar este hábito?' : '¿Eliminar esta tarea?')) { SoundFX.uncheck(); onDelete(); } }} className="opacity-0 group-hover:opacity-100 transition press h-8 w-8 grid place-items-center rounded-xl hover:bg-paper-softer dark:hover:bg-ink-soft text-zinc-400 hover:text-accent-red"><Icon name="trash-2" size={14}/></button>}
+        {onEdit && <button onClick={()=>{SoundFX.tap(); onEdit();}} className="press-spring sm:opacity-0 sm:group-hover:opacity-100 transition h-9 w-9 sm:h-8 sm:w-8 grid place-items-center rounded-xl hover:bg-white/60 dark:hover:bg-ink-soft text-zinc-400"><Icon name="pencil" size={14}/></button>}
+        {onDelete && <button onClick={()=>{ if (confirm(kind==='habit' ? '¿Eliminar este hábito?' : '¿Eliminar esta tarea?')) { SoundFX.uncheck(); onDelete(); } }} className="press-spring sm:opacity-0 sm:group-hover:opacity-100 transition h-9 w-9 sm:h-8 sm:w-8 grid place-items-center rounded-xl hover:bg-white/60 dark:hover:bg-ink-soft text-zinc-400 hover:text-accent-red"><Icon name="trash-2" size={14}/></button>}
       </div>
     );
   }
@@ -1104,22 +1343,31 @@
         <RitualBanner openRitual={()=>setRitualOpen(true)}/>
 
         {/* Hero progress */}
-        <Card className="p-6 sm:p-8 overflow-hidden relative">
-          <div className="flex items-end justify-between gap-4">
+        <Card className={`p-6 sm:p-8 overflow-hidden relative card-shine ${score>=1?'mesh-green':streak>=3?'mesh-orange':'mesh-blue'}`}>
+          <div className="flex items-end justify-between gap-4 relative">
             <div>
               <div className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Hoy</div>
-              <div className="mt-2 text-5xl sm:text-6xl font-semibold tracking-tight grad-ink"><CountUp value={done} format={n=>Math.round(n)}/><span className="text-zinc-400 text-3xl font-medium"> / {total||0}</span></div>
-              <div className="mt-2 text-zinc-500">{total === 0 ? 'Sin tareas. Planea algo.' : score >= 1 ? '✨ Día completado.' : `${Math.round(score*100)}% del día`}</div>
+              <div className="mt-2 text-5xl sm:text-6xl font-semibold tracking-tight grad-ink leading-none">
+                <CountUp value={done} format={n=>Math.round(n)}/><span className="text-zinc-400 text-3xl font-medium"> / {total||0}</span>
+              </div>
+              <div className="mt-3 text-zinc-500 dark:text-zinc-400">
+                {total === 0 ? 'Sin tareas. Planea algo.'
+                  : score >= 1 ? <span className="text-accent-green font-medium">✨ Día completado</span>
+                  : `${Math.round(score*100)}% del día`}
+              </div>
             </div>
             {streak > 0 && (
               <div className="text-right anim-scale-in">
-                <div className="inline-flex items-center gap-1 text-accent-orange font-semibold"><Icon name="flame" size={16}/> {streak}</div>
-                <div className="text-xs text-zinc-500">{streak===1?'día':'días'} seguidos</div>
+                <div className={`inline-flex items-center gap-1.5 font-semibold ${streak>=3?'breathe':''}`} style={{color:'#FF9F0A'}}>
+                  <Icon name="flame" size={streak>=7?22:18}/>
+                  <span className="tabular text-2xl sm:text-3xl tracking-tight">{streak}</span>
+                </div>
+                <div className="text-[11px] uppercase tracking-wider text-zinc-500 mt-0.5 font-semibold">racha</div>
               </div>
             )}
           </div>
-          <div className="mt-5 h-2 rounded-full bg-paper-softer dark:bg-ink-softer overflow-hidden">
-            <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.round(score*100)}%`, background: score>=1?'#30D158':score>=.5?'#FF9F0A':'#0A84FF' }}/>
+          <div className="mt-6 h-2 rounded-full bg-paper-softer dark:bg-ink-softer overflow-hidden relative">
+            <div className="h-full transition-all duration-700 ease-out rounded-full" style={{ width: `${Math.round(score*100)}%`, background: score>=1?'linear-gradient(90deg,#30D158,#64D2FF)':score>=.5?'linear-gradient(90deg,#FF9F0A,#FF453A)':'linear-gradient(90deg,#0A84FF,#5E5CE6)' }}/>
           </div>
         </Card>
 
@@ -1138,25 +1386,37 @@
         </div>
 
         {/* Tarjetas finanzas + sync */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger">
-          <Card className="p-5 cursor-pointer hover:shadow-soft transition press" onClick={()=>{SoundFX.tap(); go('finances');}}>
-            <div className="flex items-center justify-between text-zinc-500 text-sm"><span>Patrimonio</span><Icon name="wallet" size={16}/></div>
-            <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker">{fmtMoney(totalBalance)}</div>
-            <div className="mt-2 text-xs text-zinc-500">Personal {fmtMoney(state.accounts.personal.balance)} · Nakit {fmtMoney(state.accounts.nakit.balance)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-fast">
+          <Card className="p-5 cursor-pointer press-spring lift-hover card-shine relative overflow-hidden mesh-blue" onClick={()=>{SoundFX.tap(); go('finances');}}>
+            <div className="flex items-center justify-between text-zinc-500 text-sm relative">
+              <span className="text-[13px] font-semibold uppercase tracking-[0.08em] inline-flex items-center gap-1.5"><Icon name="wallet" size={12}/> Patrimonio</span>
+              <Icon name="arrow-right" size={14} className="text-zinc-400"/>
+            </div>
+            <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker grad-text-blue relative">{fmtMoney(totalBalance)}</div>
+            <div className="mt-2 text-[11px] text-zinc-500 relative">Personal {fmtMoney(state.accounts.personal.balance)} · Nakit {fmtMoney(state.accounts.nakit.balance)}</div>
           </Card>
-          <Card className="p-5 cursor-pointer hover:shadow-soft transition press" onClick={()=>{SoundFX.tap(); go('finances');}}>
-            <div className="flex items-center justify-between text-zinc-500 text-sm"><span>Mes</span><Icon name="trending-up" size={16}/></div>
-            <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker" style={{color: monthStats.net>=0?'#30D158':'#FF453A'}}>
+          <Card className={`p-5 cursor-pointer press-spring lift-hover card-shine relative overflow-hidden ${monthStats.net>=0?'mesh-green':'mesh-pink'}`} onClick={()=>{SoundFX.tap(); go('finances');}}>
+            <div className="flex items-center justify-between text-zinc-500 text-sm relative">
+              <span className="text-[13px] font-semibold uppercase tracking-[0.08em] inline-flex items-center gap-1.5"><Icon name="trending-up" size={12}/> Mes</span>
+              <Icon name="arrow-right" size={14} className="text-zinc-400"/>
+            </div>
+            <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker relative" style={{color: monthStats.net>=0?'#30D158':'#FF453A'}}>
               {monthStats.net>=0?'+':''}{fmtMoney(monthStats.net)}
             </div>
-            <div className="mt-2 text-xs text-zinc-500">Ingresos {fmtMoney(monthStats.inc)} · Gastos {fmtMoney(monthStats.exp)}</div>
+            <div className="mt-2 text-[11px] text-zinc-500 relative">↑ {fmtMoney(monthStats.inc)} · ↓ {fmtMoney(monthStats.exp)}</div>
           </Card>
-          <Card className="p-5">
-            <div className="flex items-center justify-between text-zinc-500 text-sm"><span>Sincronización</span><Icon name="cloud" size={16}/></div>
-            <div className="mt-3 text-base font-semibold flex items-center gap-2">
-              <SyncDot status={syncStatus}/> <SyncLabel status={syncStatus}/>
+          <Card className="p-5 card-shine relative overflow-hidden">
+            <div className="flex items-center justify-between text-zinc-500 text-sm">
+              <span className="text-[13px] font-semibold uppercase tracking-[0.08em] inline-flex items-center gap-1.5"><Icon name="cloud" size={12}/> Sync</span>
+              <span className="relative inline-flex">
+                <SyncDot status={syncStatus}/>
+                {syncStatus==='syncing' && <span className="absolute inset-0 rounded-full soft-pulse" style={{background:'#FF9F0A'}}/>}
+              </span>
             </div>
-            <div className="mt-2 text-xs text-zinc-500">{syncStatus==='idle' ? 'Inicia sesión para sincronizar.' : 'Tus datos viven en tu Gist privado.'}</div>
+            <div className="mt-3 text-base font-semibold flex items-center gap-2">
+              <SyncLabel status={syncStatus}/>
+            </div>
+            <div className="mt-2 text-[11px] text-zinc-500">{syncStatus==='idle' ? 'Inicia sesión para sincronizar.' : 'Datos en tu Gist privado.'}</div>
           </Card>
         </div>
 
@@ -1206,15 +1466,31 @@
 
         {/* Áreas */}
         <Section title="Áreas">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 stagger">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 stagger-fast">
             {AREAS.map(a => {
               const c = state.habits.filter(h=>h.areaId===a.id).length + state.todos.filter(t=>t.date===date && t.areaId===a.id).length;
               const d = state.habits.filter(h=>h.areaId===a.id&&h.log[date]).length + state.todos.filter(t=>t.date===date && t.areaId===a.id && t.completedAt).length;
+              const pct = c ? d/c : 0;
+              const fullyDone = c > 0 && pct >= 1;
               return (
-                <button key={a.id} onClick={()=>{SoundFX.tap(); go('today');}} className="press group p-4 rounded-3xl bg-white dark:bg-ink-soft hairline text-left hover:shadow-soft transition">
-                  <div className="h-10 w-10 grid place-items-center rounded-2xl text-white mb-3" style={{background:a.accent}}><Icon name={a.icon} size={18}/></div>
-                  <div className="font-medium">{a.name}</div>
-                  <div className="text-xs text-zinc-500 mt-1">{c > 0 ? `${d}/${c} hoy` : 'Sin ítems'}</div>
+                <button key={a.id} onClick={()=>{SoundFX.tap(); go('today');}}
+                        className="press-spring lift-hover group p-4 rounded-3xl bg-white dark:bg-ink-soft hairline text-left transition relative overflow-hidden card-shine"
+                        style={{ backgroundImage: `radial-gradient(120% 80% at 0% 0%, ${a.accent}1f, transparent 55%)` }}>
+                  <div className="relative">
+                    <div className="h-11 w-11 grid place-items-center rounded-2xl text-white mb-3 shadow-soft" style={{background:`linear-gradient(135deg, ${a.accent}, ${a.accent}cc)`}}>
+                      <Icon name={a.icon} size={20}/>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold tracking-tight">{a.name}</div>
+                      {fullyDone && <Icon name="check" size={14} className="text-accent-green"/>}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-1 font-medium">{c > 0 ? `${d}/${c} hoy` : 'Sin ítems'}</div>
+                    {c > 0 && (
+                      <div className="mt-3 h-1 rounded-full bg-paper-softer dark:bg-ink-softer overflow-hidden">
+                        <div className="h-full transition-all duration-700 ease-out rounded-full" style={{ width: `${Math.round(pct*100)}%`, background: a.accent }}/>
+                      </div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -1260,11 +1536,11 @@
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-2xl bg-paper-softer dark:bg-ink-soft w-fit">
-          {[['today','Hoy'],['tomorrow','Mañana'],['habits','Hábitos']].map(([k,l]) => (
-            <button key={k} onClick={()=>{ SoundFX.tap(); setTab(k); }} className={`press px-4 h-9 rounded-xl text-sm font-medium transition ${tab===k ? 'bg-white dark:bg-ink-softer shadow-softer':'text-zinc-500'}`}>{l}</button>
-          ))}
-        </div>
+        <Tabs value={tab} onChange={setTab} items={[
+          { value:'today',    label:'Hoy' },
+          { value:'tomorrow', label:'Mañana' },
+          { value:'habits',   label:'Hábitos' },
+        ]}/>
 
         {tab === 'habits' ? (
           <HabitsManager onOpenForm={()=>setHabitFormOpen(true)}/>
@@ -1481,11 +1757,23 @@
         </div>
 
         {/* Resumen del mes */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger">
-          <Card className="p-4"><div className="text-xs text-zinc-500">Cumplidos</div><div className="text-2xl font-semibold mt-1 ticker" style={{color:'#30D158'}}>{monthStats.done}</div></Card>
-          <Card className="p-4"><div className="text-xs text-zinc-500">A medias</div><div className="text-2xl font-semibold mt-1 ticker" style={{color:'#FF9F0A'}}>{monthStats.partial}</div></Card>
-          <Card className="p-4"><div className="text-xs text-zinc-500">Fallidos</div><div className="text-2xl font-semibold mt-1 ticker" style={{color:'#FF453A'}}>{monthStats.failed}</div></Card>
-          <Card className="p-4"><div className="text-xs text-zinc-500">Mejor racha</div><div className="text-2xl font-semibold mt-1 ticker">{bestStreak} <span className="text-base text-zinc-500 font-medium">{bestStreak===1?'día':'días'}</span></div></Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger-fast">
+          <Card className="p-4 card-shine relative overflow-hidden mesh-green">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold relative">Cumplidos</div>
+            <div className="text-3xl font-bold mt-1 ticker grad-text-cool relative">{monthStats.done}</div>
+          </Card>
+          <Card className="p-4 card-shine relative overflow-hidden mesh-orange">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold relative">A medias</div>
+            <div className="text-3xl font-bold mt-1 ticker grad-text-warm relative">{monthStats.partial}</div>
+          </Card>
+          <Card className="p-4 card-shine relative overflow-hidden mesh-pink">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold relative">Fallidos</div>
+            <div className="text-3xl font-bold mt-1 ticker relative" style={{color:'#FF453A'}}>{monthStats.failed}</div>
+          </Card>
+          <Card className="p-4 card-shine relative overflow-hidden mesh-purple">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold relative">Mejor racha</div>
+            <div className="text-3xl font-bold mt-1 ticker grad-text-purple relative">{bestStreak} <span className="text-base text-zinc-400 font-medium">{bestStreak===1?'día':'días'}</span></div>
+          </Card>
         </div>
 
         {/* Calendario */}
@@ -1504,20 +1792,29 @@
               if (!c) return <div key={i}/>;
               const isToday = c.iso === todayISO();
               const isSelected = c.iso === selected;
-              const colorBg = c.status==='done' ? '#30D158'
-                            : c.status==='partial' ? '#FF9F0A'
-                            : c.status==='failed' ? '#FF453A'
-                            : c.status==='inProgress' ? 'rgba(10,132,255,.18)'
-                            : c.status==='planned' ? 'rgba(10,132,255,.10)'
-                            : 'transparent';
+              const grad = c.status==='done' ? 'linear-gradient(135deg,#30D158,#64D2FF)'
+                         : c.status==='partial' ? 'linear-gradient(135deg,#FF9F0A,#FF453A)'
+                         : c.status==='failed' ? 'linear-gradient(135deg,#FF453A,#FF375F)'
+                         : c.status==='inProgress' ? 'rgba(10,132,255,.22)'
+                         : c.status==='planned' ? 'rgba(10,132,255,.10)'
+                         : null;
               const textColor = (c.status==='done'||c.status==='partial'||c.status==='failed') ? 'white' : 'inherit';
+              const haloColor = c.status==='done' ? 'rgba(48,209,88,.55)'
+                              : c.status==='partial' ? 'rgba(255,159,10,.55)'
+                              : c.status==='failed' ? 'rgba(255,69,58,.55)'
+                              : 'rgba(10,132,255,.45)';
               return (
-                <button key={i} onClick={()=>{SoundFX.tap(); setSelected(c.iso);}} className={`day-cell aspect-square rounded-2xl text-sm font-medium relative grid place-items-center ${isSelected ? 'ring-2 ring-ink dark:ring-white':''} ${c.status==='empty' ? 'bg-paper-softer dark:bg-ink-softer text-zinc-400' : ''}`}
-                        style={{ background: c.status==='empty' ? undefined : colorBg, color: textColor }}>
+                <button key={i} onClick={()=>{SoundFX.tap(); setSelected(c.iso);}}
+                        className={`day-cell press-spring aspect-square rounded-2xl text-sm font-semibold relative grid place-items-center ${c.status==='empty' ? 'bg-paper-softer dark:bg-ink-softer text-zinc-400' : ''}`}
+                        style={{
+                          background: grad || undefined,
+                          color: textColor,
+                          boxShadow: isSelected ? `0 0 0 2px ${isToday?'#0A84FF':'#0a0a0a'}, 0 6px 18px ${haloColor}` : (c.status==='done'||c.status==='partial'||c.status==='failed') ? `0 4px 14px ${haloColor}` : undefined,
+                        }}>
                   <span>{c.day}</span>
-                  {isToday && <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-ink dark:bg-white"/>}
+                  {isToday && <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,.9)]" style={c.status==='empty'?{background:'#0A84FF'}:undefined}/>}
                   {c.total > 0 && c.status !== 'done' && c.status !== 'failed' && c.status !== 'partial' && (
-                    <span className="absolute top-1.5 right-1.5 text-[9px] text-zinc-500">{c.done}/{c.total}</span>
+                    <span className="absolute top-1.5 right-1.5 text-[9px] text-zinc-500 tabular">{c.done}/{c.total}</span>
                   )}
                 </button>
               );
@@ -1784,11 +2081,11 @@
             {e.status !== 'closed' && <Button variant="ghost" onClick={()=>{ if (confirm('¿Eliminar este evento?')) { actions.removeEvent(e.id); back(); } }}><Icon name="trash-2" size={16}/></Button>}
           </div>
         </Card>
-        <div className="flex gap-1 p-1 rounded-2xl bg-paper-softer dark:bg-ink-soft w-fit">
-          {[['sell','Vender'],['catalog','Productos'],['summary','Resumen']].map(([k,l]) => (
-            <button key={k} onClick={()=>{SoundFX.tap(); setTab(k);}} className={`press px-4 h-9 rounded-xl text-sm font-medium transition ${tab===k ? 'bg-white dark:bg-ink-softer shadow-softer':'text-zinc-500'}`}>{l}</button>
-          ))}
-        </div>
+        <Tabs value={tab} onChange={setTab} items={[
+          { value:'sell',    label:'Vender' },
+          { value:'catalog', label:'Productos' },
+          { value:'summary', label:'Resumen' },
+        ]}/>
         {tab === 'sell' && <SellTab event={e}/>}
         {tab === 'catalog' && (
           <Section title="Productos" action={<Button size="sm" onClick={()=>{ setNewItemName(''); setNewItemPrice(''); setEditingItemId(null); setNewItemOpen(true); }}><Icon name="plus" size={14}/> Agregar</Button>}>
@@ -2051,53 +2348,53 @@
         </div>
 
         {/* Hidratación + sueño + entrenos resumen */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger">
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-fast">
+          <Card className="p-5 card-shine relative overflow-hidden" style={{backgroundImage:'radial-gradient(120% 80% at 0% 0%, rgba(100,210,255,.18), transparent 55%)'}}>
+            <div className="flex items-center justify-between relative">
               <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Agua hoy</div>
               <Icon name="droplet" size={16} className="text-accent-teal"/>
             </div>
-            <div className="mt-3 text-3xl font-semibold tracking-tight ticker">
+            <div className="mt-3 text-3xl font-bold tracking-tight ticker grad-text-cool relative">
               <CountUp value={todayHydration} format={n=>Math.round(n)}/><span className="text-zinc-400 text-base font-medium"> / 8</span>
             </div>
-            <div className="mt-3 flex gap-1">
+            <div className="mt-3 flex gap-1 relative">
               {Array.from({length:8}, (_,i) => (
-                <button key={i} onClick={()=>{SoundFX.tap(); setGlasses(i+1 === todayHydration ? i : i+1);}}
-                        className={`press flex-1 h-7 rounded-md transition ${i < todayHydration ? '' : 'bg-paper-softer dark:bg-ink-softer'}`}
-                        style={i < todayHydration ? { background: '#64D2FF' } : undefined}/>
+                <button key={i} onClick={()=>{SoundFX.tap(); vibrate(6); setGlasses(i+1 === todayHydration ? i : i+1);}}
+                        className={`press-spring flex-1 h-9 sm:h-7 rounded-md transition ${i < todayHydration ? '' : 'bg-paper-softer dark:bg-ink-softer'}`}
+                        style={i < todayHydration ? { background: 'linear-gradient(180deg,#64D2FF,#0A84FF)', boxShadow:'0 2px 6px rgba(10,132,255,.35)' } : undefined}/>
               ))}
             </div>
-            <div className="mt-3 text-[11px] text-zinc-400">Toca un vaso para marcarlo</div>
+            <div className="mt-3 text-[11px] text-zinc-400 relative">Toca un vaso para marcarlo</div>
           </Card>
 
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
+          <Card className="p-5 card-shine relative overflow-hidden" style={{backgroundImage:'radial-gradient(120% 80% at 100% 0%, rgba(94,92,230,.20), transparent 55%)'}}>
+            <div className="flex items-center justify-between relative">
               <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Sueño · 7 días</div>
               <Icon name="moon" size={16} className="text-accent-purple"/>
             </div>
-            <div className="mt-3 text-3xl font-semibold tracking-tight ticker">
+            <div className="mt-3 text-3xl font-bold tracking-tight ticker grad-text-purple relative">
               {avg7.toFixed(1)}<span className="text-zinc-400 text-base font-medium">h prom</span>
             </div>
-            <div className="mt-3 flex gap-1 items-end h-12">
+            <div className="mt-3 flex gap-1 items-end h-12 relative">
               {sleep7.map((h,i) => (
                 <div key={i} className="flex-1 rounded-md transition" title={`${last7[i]}: ${h}h`}
-                     style={{ height: `${Math.min(100,(h/9)*100)}%`, minHeight: h?'4px':'2px', background: h ? '#5E5CE6' : 'rgba(94,92,230,.18)' }}/>
+                     style={{ height: `${Math.min(100,(h/9)*100)}%`, minHeight: h?'6px':'3px', background: h ? 'linear-gradient(180deg,#5E5CE6,#BF5AF2)' : 'rgba(94,92,230,.18)', boxShadow: h?'0 2px 6px rgba(94,92,230,.3)':'none' }}/>
               ))}
             </div>
-            <div className="mt-2 text-[11px] text-zinc-400 flex justify-between">
+            <div className="mt-2 text-[11px] text-zinc-400 flex justify-between relative">
               {last7.map(d => <span key={d}>{dayNameShort(d).charAt(0)}</span>)}
             </div>
           </Card>
 
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Entrenos · 30 días</div>
+          <Card className="p-5 card-shine relative overflow-hidden mesh-green">
+            <div className="flex items-center justify-between relative">
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Entrenos · 30d</div>
               <Icon name="dumbbell" size={16} className="text-accent-green"/>
             </div>
-            <div className="mt-3 text-3xl font-semibold tracking-tight ticker" style={{color:'#30D158'}}>
+            <div className="mt-3 text-3xl font-bold tracking-tight ticker grad-text-cool relative">
               <CountUp value={workoutsLast30.length} format={n=>Math.round(n)}/>
             </div>
-            <div className="mt-2 text-xs text-zinc-500">{workoutsThisWeek.length} esta semana · {Math.round(workoutsLast30.reduce((a,w)=>a+(w.duration||0),0)/60)}h totales</div>
+            <div className="mt-2 text-xs text-zinc-500 relative">{workoutsThisWeek.length} esta semana · {Math.round(workoutsLast30.reduce((a,w)=>a+(w.duration||0),0)/60)}h totales</div>
           </Card>
         </div>
 
@@ -2326,40 +2623,67 @@
 
     const activeNav = base;
 
+    const activeIdx = Math.max(0, NAV.findIndex(n => n.id === activeNav));
+
     return (
       <div className="min-h-full">
         <header className="sticky top-0 z-30 glass hairline-b">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-ink dark:bg-white grid place-items-center text-white dark:text-ink"><Icon name="layers" size={16}/></div>
+            <div className="h-8 w-8 rounded-xl bg-ink dark:bg-white grid place-items-center text-white dark:text-ink shadow-soft"><Icon name="layers" size={16}/></div>
             <div className="font-semibold tracking-tight">Vida</div>
             <div className="ml-2 hidden sm:flex items-center gap-1.5 text-xs text-zinc-500"><SyncDot status={syncStatus}/> <SyncLabel status={syncStatus}/></div>
             <div className="flex-1"/>
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV.map(n => (
-                <button key={n.id} onClick={()=>go(n.id)} className={`press px-3 h-9 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition ${activeNav===n.id ? 'bg-paper-softer dark:bg-ink-soft text-ink dark:text-white' : 'text-zinc-500 hover:text-ink dark:hover:text-white hover:bg-paper-softer dark:hover:bg-ink-soft'}`}>
-                  <Icon name={n.icon} size={14}/> {n.label}
-                </button>
-              ))}
-            </nav>
+            <TopNavDesktop nav={NAV} activeIdx={activeIdx} onGo={go}/>
             {auth && auth.user.avatar && <img src={auth.user.avatar} alt="" className="h-8 w-8 rounded-full hairline ml-2"/>}
           </div>
         </header>
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-28 md:pb-10">
-          <div key={route}>{view}</div>
+          <div key={route} className="view-enter">{view}</div>
         </main>
 
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 glass hairline-b" style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
-          <div className="grid grid-cols-7">
-            {NAV.map(n => (
-              <button key={n.id} onClick={()=>go(n.id)} className="press flex flex-col items-center gap-0.5 py-2.5">
-                <Icon name={n.icon} size={18} className={activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-400'}/>
-                <span className={`text-[9px] font-medium ${activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-500'}`}>{n.label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
+        <BottomTabbar nav={NAV} activeIdx={activeIdx} onGo={go}/>
       </div>
+    );
+  }
+
+  function TopNavDesktop({ nav, activeIdx, onGo }) {
+    const wrapRef = useRef(null);
+    const [pill, setPill] = useState({ left: 0, width: 0, opacity: 0 });
+    useEffect(() => {
+      const el = wrapRef.current?.querySelectorAll('button')[activeIdx];
+      if (!el) return;
+      const wrap = wrapRef.current.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      setPill({ left: r.left - wrap.left, width: r.width, opacity: 1 });
+    }, [activeIdx, nav.length]);
+
+    return (
+      <nav ref={wrapRef} className="hidden md:flex topnav items-center gap-1">
+        <span className="topnav-pill" style={{ transform: `translateX(${pill.left}px)`, width: pill.width, opacity: pill.opacity }}/>
+        {nav.map((n, i) => (
+          <button key={n.id} onClick={()=>onGo(n.id)}
+                  className={`topnav-btn press-spring px-3 h-9 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-colors ${i===activeIdx ? 'text-ink dark:text-white' : 'text-zinc-500 hover:text-ink dark:hover:text-white'}`}>
+            <Icon name={n.icon} size={14}/> {n.label}
+          </button>
+        ))}
+      </nav>
+    );
+  }
+
+  function BottomTabbar({ nav, activeIdx, onGo }) {
+    return (
+      <nav className="tabbar md:hidden">
+        <div className="tabbar-grid">
+          <span className="tabbar-pill" style={{ transform: `translateX(${activeIdx*100}%)` }}/>
+          {nav.map((n, i) => (
+            <button key={n.id} onClick={()=>onGo(n.id)} data-active={i===activeIdx} className="tabbar-btn press-spring">
+              <Icon name={n.icon} size={i===activeIdx ? 20 : 18}/>
+              <span>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     );
   }
 
