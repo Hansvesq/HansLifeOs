@@ -318,8 +318,30 @@
     habits: [],
     todos: [],          // { id, text, areaId, date(YYYY-MM-DD), createdAt, completedAt|null }
     events: [],
+    energy: { current: null, lastUpdated: null, history: [] }, // history: [{ts, level}]
+    health: { sleep: [], hydration: [], workouts: [] }, // sleep: [{date,h,quality,bedtime,wakeTime,notes}]; hydration: [{date,glasses}]; workouts: [{date,type,duration,intensity,notes}]
+    weeklyPlans: [],    // [{weekStart, wins:[], learnings:[], intention, priorities:[], createdAt}]
     settings: { theme: 'system', sound: true, _version: 2 },
-    stats: { confettiSeen: {} },
+    stats: { confettiSeen: {}, ritualDismissed: {} },
+  };
+
+  // Energía
+  const ENERGY_LEVELS = [
+    { id: 'peak',     label: 'Pico',    color: '#BF5AF2', tip: 'Trabajo profundo, decisiones, creación. No desperdicies este momento en email.' },
+    { id: 'high',     label: 'Alta',    color: '#0A84FF', tip: 'Reuniones que importan, sesiones de Nakit, código nuevo.' },
+    { id: 'medium',   label: 'Media',   color: '#30D158', tip: 'Ejecución, lo planificado, tareas concretas.' },
+    { id: 'low',      label: 'Baja',    color: '#FF9F0A', tip: 'Admin, correos, organización, lectura ligera.' },
+    { id: 'depleted', label: 'Agotada', color: '#FF453A', tip: 'No tomes decisiones. Camina, hidrata, come. Si podés, siesta.' },
+  ];
+  const ENERGY_BY_ID = Object.fromEntries(ENERGY_LEVELS.map(e => [e.id, e]));
+
+  // Inicio de semana (lunes)
+  const weekStart = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    const day = d.getDay(); // 0 dom .. 6 sáb
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
   };
 
   const StoreCtx = createContext(null);
@@ -333,6 +355,9 @@
         accounts: { ...defaultState.accounts, ...(p.accounts||{}) },
         settings: { ...defaultState.settings, ...(p.settings||{}) },
         stats: { ...defaultState.stats, ...(p.stats||{}) },
+        energy: { ...defaultState.energy, ...(p.energy||{}) },
+        health: { ...defaultState.health, ...(p.health||{}) },
+        weeklyPlans: p.weeklyPlans || [],
       };
     } catch { return defaultState; }
   }
@@ -481,6 +506,42 @@
       }),
 
       markConfetti: (key) => update(s => { s.stats.confettiSeen[key] = true; return s; }),
+      dismissRitual: (weekStartISO) => update(s => { s.stats.ritualDismissed[weekStartISO] = true; return s; }),
+
+      /* Energía */
+      setEnergy: (level) => update(s => {
+        s.energy.current = level;
+        s.energy.lastUpdated = Date.now();
+        s.energy.history = (s.energy.history || []).slice(-200);
+        s.energy.history.push({ ts: Date.now(), level });
+        return s;
+      }),
+
+      /* Salud */
+      addSleep: (entry) => update(s => {
+        const idx = s.health.sleep.findIndex(x => x.date === entry.date);
+        if (idx >= 0) s.health.sleep[idx] = { ...s.health.sleep[idx], ...entry };
+        else s.health.sleep.push(entry);
+        return s;
+      }),
+      removeSleep: (date) => update(s => { s.health.sleep = s.health.sleep.filter(x => x.date !== date); return s; }),
+      setHydration: (date, glasses) => update(s => {
+        const idx = s.health.hydration.findIndex(x => x.date === date);
+        if (idx >= 0) s.health.hydration[idx].glasses = glasses;
+        else s.health.hydration.push({ date, glasses });
+        return s;
+      }),
+      addWorkout: (entry) => update(s => { s.health.workouts.push({ id: uid(), ...entry }); return s; }),
+      removeWorkout: (id) => update(s => { s.health.workouts = s.health.workouts.filter(x => x.id !== id); return s; }),
+
+      /* Plan semanal */
+      saveWeeklyPlan: (plan) => update(s => {
+        const idx = s.weeklyPlans.findIndex(x => x.weekStart === plan.weekStart);
+        if (idx >= 0) s.weeklyPlans[idx] = { ...s.weeklyPlans[idx], ...plan };
+        else s.weeklyPlans.unshift({ createdAt: Date.now(), ...plan });
+        return s;
+      }),
+
       reset: () => setState(defaultState),
       importState: (obj) => setState({ ...defaultState, ...obj }),
     }), [update]);
@@ -513,6 +574,221 @@
     else status = 'failed';
 
     return { status, score, done, total, doneH, totalH, doneT, totalT };
+  }
+
+  /* =========================================================
+     ENERGY — tarjeta + modal
+     ========================================================= */
+  function EnergyCard() {
+    const { state, actions } = useStore();
+    const cur = state.energy.current;
+    const last = state.energy.lastUpdated;
+    const stale = !last || (Date.now() - last) > 5 * 3600 * 1000; // >5h
+    const e = cur ? ENERGY_BY_ID[cur] : null;
+
+    const set = (level) => {
+      actions.setEnergy(level);
+      SoundFX.tap();
+    };
+
+    return (
+      <Card className="p-5 anim-scale-in">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+            Energía {e && !stale && <span className="ml-1 normal-case tracking-normal" style={{color:e.color}}>· {e.label}</span>}
+          </div>
+          {last && <div className="text-[11px] text-zinc-400">{stale ? 'desactualizada' : 'hace ' + Math.round((Date.now()-last)/60000) + ' min'}</div>}
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {ENERGY_LEVELS.map(lv => {
+            const active = cur === lv.id && !stale;
+            return (
+              <button key={lv.id} onClick={()=>set(lv.id)}
+                      className={`press py-2 rounded-xl text-[11px] font-semibold transition ${active ? 'text-white shadow-soft' : 'bg-paper-softer dark:bg-ink-softer hover:bg-zinc-200 dark:hover:bg-ink-soft'}`}
+                      style={active ? { background: lv.color } : undefined}>
+                {lv.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed min-h-[2.6em]">
+          {e && !stale ? e.tip : 'Marcá tu energía actual y la app te dice qué tipo de tarea hacer.'}
+        </p>
+      </Card>
+    );
+  }
+
+  /* =========================================================
+     RITUAL DE DOMINGO — banner + sheet
+     ========================================================= */
+  function WeeklyRitualSheet({ open, onClose }) {
+    const { state, actions } = useStore();
+    const today = todayISO();
+    const ws = weekStart(today);
+    const lastWs = addDays(ws, -7);
+    const existing = state.weeklyPlans.find(p => p.weekStart === ws);
+    const lastPlan = state.weeklyPlans.find(p => p.weekStart === lastWs);
+
+    const [step, setStep] = useState(0);
+    const [wins, setWins] = useState('');
+    const [learnings, setLearnings] = useState('');
+    const [intention, setIntention] = useState('');
+    const [priorities, setPriorities] = useState(['','','']);
+
+    useEffect(() => {
+      if (!open) return;
+      setStep(0);
+      setWins((existing?.wins || []).join('\n'));
+      setLearnings((existing?.learnings || []).join('\n'));
+      setIntention(existing?.intention || '');
+      const ps = existing?.priorities || [];
+      setPriorities([ps[0]||'', ps[1]||'', ps[2]||'']);
+    }, [open]);
+
+    const save = () => {
+      const plan = {
+        weekStart: ws,
+        wins: wins.split('\n').map(s => s.trim()).filter(Boolean),
+        learnings: learnings.split('\n').map(s => s.trim()).filter(Boolean),
+        intention: intention.trim(),
+        priorities: priorities.map(s => s.trim()).filter(Boolean).slice(0, 3),
+      };
+      actions.saveWeeklyPlan(plan);
+      SoundFX.milestone();
+      vibrate(20);
+      fireConfetti({ count: 60 });
+      onClose();
+    };
+
+    const steps = [
+      {
+        title: 'Mirá la semana que pasó',
+        body: (
+          <div className="space-y-4">
+            {!lastPlan && <p className="text-xs text-zinc-500">Es tu primer ritual — no hay semana anterior. Saltá lo que no aplique.</p>}
+            <label className="block">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">Wins · qué funcionó <span className="text-zinc-400">(uno por línea)</span></span>
+              <Textarea rows={4} value={wins} onChange={e=>setWins(e.target.value)} placeholder="Cerré 3 ventas&#10;Entrené 4 días&#10;…"/>
+            </label>
+            <label className="block">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">Aprendizajes · qué no funcionó</span>
+              <Textarea rows={4} value={learnings} onChange={e=>setLearnings(e.target.value)} placeholder="Me distraigo cuando…"/>
+            </label>
+          </div>
+        ),
+      },
+      {
+        title: 'Intención de esta semana',
+        body: (
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Una sola frase que defina la semana. Cuando dudés qué hacer, esto decide.</p>
+            <Input placeholder="Ej. Dejar lista la colección para fotos" value={intention} onChange={e=>setIntention(e.target.value)} icon="target"/>
+          </div>
+        ),
+      },
+      {
+        title: 'Tres prioridades',
+        body: (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Solo tres. Lo demás es ruido. Si una semana se complica, esto es lo único que tenés que mover.</p>
+            {priorities.map((p, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="h-7 w-7 grid place-items-center rounded-full bg-ink text-white dark:bg-white dark:text-ink text-xs font-semibold shrink-0">{i+1}</span>
+                <Input placeholder={i===0?'Prioridad #1':i===1?'Prioridad #2':'Prioridad #3'} value={p} onChange={e=>{const np=[...priorities]; np[i]=e.target.value; setPriorities(np);}}/>
+              </div>
+            ))}
+          </div>
+        ),
+      },
+    ];
+
+    const last = step === steps.length - 1;
+    const s = steps[step];
+
+    return (
+      <Sheet open={open} onClose={onClose}
+             title={`Ritual de domingo · semana del ${fmtDate(ws,{day:'numeric',month:'long'})}`}
+             footer={
+               <div className="flex items-center gap-2">
+                 {step > 0 && <Button variant="ghost" onClick={()=>setStep(s=>s-1)}>Atrás</Button>}
+                 <div className="flex-1"/>
+                 {!last && <Button onClick={()=>setStep(s=>s+1)}>Siguiente <Icon name="arrow-right" size={16}/></Button>}
+                 {last && <Button onClick={save} sound="success">Guardar plan <Icon name="check" size={16}/></Button>}
+               </div>
+             }>
+        <div className="mb-5 flex items-center gap-1">
+          {steps.map((_, i) => (
+            <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-500 ${i <= step ? 'bg-ink dark:bg-white' : 'bg-zinc-200 dark:bg-ink-softer'}`}/>
+          ))}
+        </div>
+        <h3 className="text-xl font-semibold tracking-tight mb-4">{s.title}</h3>
+        <div key={step} className="anim-in">{s.body}</div>
+      </Sheet>
+    );
+  }
+
+  function WeeklyCard({ openRitual }) {
+    const { state } = useStore();
+    const today = todayISO();
+    const ws = weekStart(today);
+    const plan = state.weeklyPlans.find(p => p.weekStart === ws);
+
+    if (!plan || (!plan.intention && plan.priorities.length === 0)) return null;
+
+    return (
+      <Card className="p-5 anim-scale-in">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Esta semana</div>
+            {plan.intention && <h3 className="mt-2 text-lg font-semibold leading-snug">"{plan.intention}"</h3>}
+          </div>
+          <button onClick={openRitual} className="press text-xs text-zinc-500 hover:text-ink dark:hover:text-white shrink-0 inline-flex items-center gap-1">
+            <Icon name="pencil" size={12}/> editar
+          </button>
+        </div>
+        {plan.priorities.length > 0 && (
+          <ol className="mt-4 space-y-2">
+            {plan.priorities.map((p, i) => (
+              <li key={i} className="flex items-center gap-3 text-[14px]">
+                <span className="h-6 w-6 shrink-0 grid place-items-center rounded-full bg-paper-softer dark:bg-ink-softer text-xs font-semibold">{i+1}</span>
+                <span className="truncate">{p}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+    );
+  }
+
+  function RitualBanner({ openRitual }) {
+    const { state, actions } = useStore();
+    const today = todayISO();
+    const ws = weekStart(today);
+    const plan = state.weeklyPlans.find(p => p.weekStart === ws);
+    const dismissed = state.stats.ritualDismissed?.[ws];
+    const dow = new Date(today + 'T00:00:00').getDay(); // 0 dom .. 6 sab
+    const isWeekend = dow === 0 || dow === 6 || dow === 1; // dom, sab, lun
+    const hasPlan = plan && (plan.intention || plan.priorities.length > 0);
+
+    if (hasPlan || dismissed || !isWeekend) return null;
+
+    return (
+      <Card className="p-4 sm:p-5 anim-scale-in" style={{background: 'linear-gradient(135deg, rgba(94,92,230,.08), rgba(10,132,255,.06))'}}>
+        <div className="flex items-start gap-4">
+          <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-purple/15 text-accent-purple shrink-0">
+            <Icon name="sparkles" size={18}/>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">Ritual de domingo</div>
+            <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">15 minutos para revisar la semana que pasó y elegir 3 prioridades para la nueva. Esto es lo que más mueve la aguja.</div>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" onClick={openRitual}>Empezar <Icon name="arrow-right" size={14}/></Button>
+              <Button variant="ghost" size="sm" onClick={()=>actions.dismissRitual(ws)}>Esta semana no</Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
   }
 
   /* =========================================================
@@ -771,6 +1047,7 @@
   function Dashboard({ go }) {
     const { state, actions, syncStatus } = useStore();
     const date = todayISO();
+    const [ritualOpen, setRitualOpen] = useState(false);
 
     const habitsToday = state.habits.filter(h => h.createdAt <= date);
     const todosToday = state.todos.filter(t => t.date === date);
@@ -780,6 +1057,9 @@
     const score = total ? done/total : 0;
     const totalBalance = state.accounts.personal.balance + state.accounts.nakit.balance;
     const activeEvent = state.events.find(e => e.status === 'active');
+    const ws = weekStart(date);
+    const weeklyPlan = state.weeklyPlans.find(p => p.weekStart === ws);
+    const hasWeekly = weeklyPlan && (weeklyPlan.intention || weeklyPlan.priorities.length > 0);
 
     // streak: días consecutivos cumplidos hacia atrás (incluye hoy si está al 100%)
     const streak = useMemo(() => {
@@ -814,12 +1094,14 @@
     const greeting = (() => { const h = new Date().getHours(); return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'; })();
 
     return (
-      <div className="space-y-8 anim-in">
+      <div className="space-y-6 anim-in">
         <div>
           <div className="text-sm text-zinc-500 dark:text-zinc-400">{greeting},</div>
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight grad-ink">{state.profile.name || 'Tú'}.</h1>
           <p className="mt-2 text-zinc-500 dark:text-zinc-400 capitalize">{dayName(date).toLowerCase()} · {fmtDate(date,{day:'numeric',month:'long',year:'numeric'})}</p>
         </div>
+
+        <RitualBanner openRitual={()=>setRitualOpen(true)}/>
 
         {/* Hero progress */}
         <Card className="p-6 sm:p-8 overflow-hidden relative">
@@ -841,14 +1123,28 @@
           </div>
         </Card>
 
-        {/* Tarjetas */}
+        {/* Energía + Semana */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <EnergyCard/>
+          {hasWeekly ? (
+            <WeeklyCard openRitual={()=>setRitualOpen(true)}/>
+          ) : (
+            <Card className="p-5 border-dashed" style={{boxShadow:'inset 0 0 0 1px rgba(94,92,230,.25)'}}>
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Esta semana</div>
+              <p className="mt-2 text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">No has hecho el ritual de domingo. 15 minutos para definir intención y 3 prioridades.</p>
+              <Button size="sm" className="mt-3" onClick={()=>setRitualOpen(true)}><Icon name="sparkles" size={14}/> Hacer ritual</Button>
+            </Card>
+          )}
+        </div>
+
+        {/* Tarjetas finanzas + sync */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger">
-          <Card className="p-5">
+          <Card className="p-5 cursor-pointer hover:shadow-soft transition press" onClick={()=>{SoundFX.tap(); go('finances');}}>
             <div className="flex items-center justify-between text-zinc-500 text-sm"><span>Patrimonio</span><Icon name="wallet" size={16}/></div>
             <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker">{fmtMoney(totalBalance)}</div>
             <div className="mt-2 text-xs text-zinc-500">Personal {fmtMoney(state.accounts.personal.balance)} · Nakit {fmtMoney(state.accounts.nakit.balance)}</div>
           </Card>
-          <Card className="p-5">
+          <Card className="p-5 cursor-pointer hover:shadow-soft transition press" onClick={()=>{SoundFX.tap(); go('finances');}}>
             <div className="flex items-center justify-between text-zinc-500 text-sm"><span>Mes</span><Icon name="trending-up" size={16}/></div>
             <div className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight ticker" style={{color: monthStats.net>=0?'#30D158':'#FF453A'}}>
               {monthStats.net>=0?'+':''}{fmtMoney(monthStats.net)}
@@ -863,6 +1159,8 @@
             <div className="mt-2 text-xs text-zinc-500">{syncStatus==='idle' ? 'Inicia sesión para sincronizar.' : 'Tus datos viven en tu Gist privado.'}</div>
           </Card>
         </div>
+
+        <WeeklyRitualSheet open={ritualOpen} onClose={()=>setRitualOpen(false)}/>
 
         {/* Lista de hoy */}
         <Section title="Tareas y hábitos de hoy" action={<button onClick={()=>go('today')} className="text-sm text-zinc-500 hover:text-ink dark:hover:text-white">Ver todos →</button>}>
@@ -1645,6 +1943,254 @@
   }
 
   /* =========================================================
+     SALUD — sueño, hidratación, entrenos
+     ========================================================= */
+  const WORKOUT_TYPES = ['Fuerza', 'Cardio', 'Flexibilidad', 'Deporte'];
+
+  function SleepForm({ open, onClose }) {
+    const { actions } = useStore();
+    const [date, setDate] = useState(todayISO());
+    const [hours, setHours] = useState(7);
+    const [quality, setQuality] = useState(3);
+    const [bedtime, setBedtime] = useState('23:00');
+    const [wakeTime, setWakeTime] = useState('06:30');
+    const [notes, setNotes] = useState('');
+    useEffect(() => { if (open) { setDate(todayISO()); setHours(7); setQuality(3); setBedtime('23:00'); setWakeTime('06:30'); setNotes(''); } }, [open]);
+    return (
+      <Sheet open={open} onClose={onClose} title="Registrar sueño"
+             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{actions.addSleep({date, h: +hours, quality, bedtime, wakeTime, notes: notes.trim()}); SoundFX.success(); onClose();}}>Guardar</Button></div>}>
+        <div className="space-y-4">
+          <label className="block"><span className="text-sm text-zinc-500">Fecha</span><Input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1"/></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-zinc-500">Horas</span><Input type="number" step="0.5" min="0" max="14" value={hours} onChange={e=>setHours(e.target.value)} icon="moon" className="mt-1"/></label>
+            <label className="block"><span className="text-sm text-zinc-500">Calidad</span>
+              <div className="mt-1 flex gap-1.5">
+                {[1,2,3,4,5].map(q => (
+                  <button key={q} onClick={()=>{SoundFX.tap(); setQuality(q);}} className={`press flex-1 h-11 rounded-2xl text-sm font-semibold transition ${quality===q ? 'bg-ink text-white dark:bg-white dark:text-ink' : 'bg-paper-softer dark:bg-ink-softer'}`}>{q}</button>
+                ))}
+              </div>
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-zinc-500">Acostado</span><Input type="time" value={bedtime} onChange={e=>setBedtime(e.target.value)} className="mt-1"/></label>
+            <label className="block"><span className="text-sm text-zinc-500">Despertó</span><Input type="time" value={wakeTime} onChange={e=>setWakeTime(e.target.value)} className="mt-1"/></label>
+          </div>
+          <label className="block"><span className="text-sm text-zinc-500">Notas (café tarde, ruido…)</span><Textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
+        </div>
+      </Sheet>
+    );
+  }
+
+  function WorkoutForm({ open, onClose }) {
+    const { actions } = useStore();
+    const [date, setDate] = useState(todayISO());
+    const [type, setType] = useState('Fuerza');
+    const [duration, setDuration] = useState(60);
+    const [intensity, setIntensity] = useState('media');
+    const [notes, setNotes] = useState('');
+    useEffect(() => { if (open) { setDate(todayISO()); setType('Fuerza'); setDuration(60); setIntensity('media'); setNotes(''); } }, [open]);
+    return (
+      <Sheet open={open} onClose={onClose} title="Registrar entreno"
+             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{const d = parseInt(duration); if (!d) return; actions.addWorkout({date, type, duration: d, intensity, notes: notes.trim()}); SoundFX.success(); onClose();}}>Guardar</Button></div>}>
+        <div className="space-y-4">
+          <label className="block"><span className="text-sm text-zinc-500">Fecha</span><Input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1"/></label>
+          <div>
+            <span className="text-sm text-zinc-500">Tipo</span>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              {WORKOUT_TYPES.map(t => (
+                <button key={t} onClick={()=>{SoundFX.tap(); setType(t);}}
+                        className={`press p-3 rounded-2xl text-[12px] font-semibold transition ${type===t ? 'bg-ink text-white dark:bg-white dark:text-ink' : 'bg-paper-softer dark:bg-ink-softer'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-zinc-500">Duración (min)</span><Input type="number" min="1" value={duration} onChange={e=>setDuration(e.target.value)} className="mt-1"/></label>
+            <label className="block"><span className="text-sm text-zinc-500">Intensidad</span>
+              <div className="mt-1 flex gap-1.5">
+                {[['baja','baja'],['media','media'],['alta','alta']].map(([k,l]) => (
+                  <button key={k} onClick={()=>{SoundFX.tap(); setIntensity(k);}} className={`press flex-1 h-11 rounded-2xl text-sm font-semibold capitalize transition ${intensity===k ? 'bg-ink text-white dark:bg-white dark:text-ink' : 'bg-paper-softer dark:bg-ink-softer'}`}>{l}</button>
+                ))}
+              </div>
+            </label>
+          </div>
+          <label className="block"><span className="text-sm text-zinc-500">Notas</span><Textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
+        </div>
+      </Sheet>
+    );
+  }
+
+  function HealthView() {
+    const { state, actions } = useStore();
+    const today = todayISO();
+    const [sleepOpen, setSleepOpen] = useState(false);
+    const [workoutOpen, setWorkoutOpen] = useState(false);
+
+    const todayHydration = state.health.hydration.find(x => x.date === today)?.glasses || 0;
+    const last7 = useMemo(() => Array.from({length:7}, (_,i) => addDays(today, -(6-i))), [today]);
+    const last30 = useMemo(() => Array.from({length:30}, (_,i) => addDays(today, -(29-i))), [today]);
+    const sleep7 = last7.map(d => state.health.sleep.find(x => x.date === d)?.h || 0);
+    const avg7 = sleep7.filter(x => x > 0).length ? (sleep7.filter(x=>x>0).reduce((a,b)=>a+b,0) / sleep7.filter(x=>x>0).length) : 0;
+    const workoutsLast30 = state.health.workouts.filter(w => last30.includes(w.date));
+    const workoutsThisWeek = state.health.workouts.filter(w => last7.includes(w.date));
+
+    const setGlasses = (n) => actions.setHydration(today, n);
+
+    return (
+      <div className="space-y-8 anim-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Salud</h1>
+            <p className="text-zinc-500 mt-1">Sueño, agua y entrenos. Sin esto, todo lo demás falla.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={()=>setSleepOpen(true)}><Icon name="moon" size={16}/> <span className="hidden sm:inline">Sueño</span></Button>
+            <Button onClick={()=>setWorkoutOpen(true)}><Icon name="dumbbell" size={16}/> <span className="hidden sm:inline">Entreno</span></Button>
+          </div>
+        </div>
+
+        {/* Hidratación + sueño + entrenos resumen */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger">
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Agua hoy</div>
+              <Icon name="droplet" size={16} className="text-accent-teal"/>
+            </div>
+            <div className="mt-3 text-3xl font-semibold tracking-tight ticker">
+              <CountUp value={todayHydration} format={n=>Math.round(n)}/><span className="text-zinc-400 text-base font-medium"> / 8</span>
+            </div>
+            <div className="mt-3 flex gap-1">
+              {Array.from({length:8}, (_,i) => (
+                <button key={i} onClick={()=>{SoundFX.tap(); setGlasses(i+1 === todayHydration ? i : i+1);}}
+                        className={`press flex-1 h-7 rounded-md transition ${i < todayHydration ? '' : 'bg-paper-softer dark:bg-ink-softer'}`}
+                        style={i < todayHydration ? { background: '#64D2FF' } : undefined}/>
+              ))}
+            </div>
+            <div className="mt-3 text-[11px] text-zinc-400">Toca un vaso para marcarlo</div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Sueño · 7 días</div>
+              <Icon name="moon" size={16} className="text-accent-purple"/>
+            </div>
+            <div className="mt-3 text-3xl font-semibold tracking-tight ticker">
+              {avg7.toFixed(1)}<span className="text-zinc-400 text-base font-medium">h prom</span>
+            </div>
+            <div className="mt-3 flex gap-1 items-end h-12">
+              {sleep7.map((h,i) => (
+                <div key={i} className="flex-1 rounded-md transition" title={`${last7[i]}: ${h}h`}
+                     style={{ height: `${Math.min(100,(h/9)*100)}%`, minHeight: h?'4px':'2px', background: h ? '#5E5CE6' : 'rgba(94,92,230,.18)' }}/>
+              ))}
+            </div>
+            <div className="mt-2 text-[11px] text-zinc-400 flex justify-between">
+              {last7.map(d => <span key={d}>{dayNameShort(d).charAt(0)}</span>)}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Entrenos · 30 días</div>
+              <Icon name="dumbbell" size={16} className="text-accent-green"/>
+            </div>
+            <div className="mt-3 text-3xl font-semibold tracking-tight ticker" style={{color:'#30D158'}}>
+              <CountUp value={workoutsLast30.length} format={n=>Math.round(n)}/>
+            </div>
+            <div className="mt-2 text-xs text-zinc-500">{workoutsThisWeek.length} esta semana · {Math.round(workoutsLast30.reduce((a,w)=>a+(w.duration||0),0)/60)}h totales</div>
+          </Card>
+        </div>
+
+        {/* Correlación sueño vs cumplimiento */}
+        {(()=>{
+          const points = last30.map(d => {
+            const sl = state.health.sleep.find(x=>x.date===d)?.h;
+            if (!sl) return null;
+            const ds = dayStatus(state, d);
+            return { d, h: sl, score: ds.score, status: ds.status };
+          }).filter(Boolean);
+          if (points.length < 5) return null;
+          const maxH = Math.max(...points.map(p=>p.h), 9);
+          return (
+            <Section title="Sueño vs cumplimiento del día">
+              <Card className="p-5">
+                <p className="text-xs text-zinc-500 mb-4">Cada punto es un día. Eje X: horas dormidas. Eje Y: % completado del día.</p>
+                <div className="relative h-48 border-l border-b border-zinc-200 dark:border-zinc-700">
+                  {points.map((p,i) => (
+                    <div key={i} title={`${p.d}: ${p.h}h, ${Math.round(p.score*100)}%`}
+                         className="absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 translate-y-1/2"
+                         style={{
+                           left: `${(p.h/maxH)*100}%`,
+                           bottom: `${p.score*100}%`,
+                           background: p.status==='done'?'#30D158':p.status==='partial'?'#FF9F0A':p.status==='failed'?'#FF453A':'#0A84FF',
+                         }}/>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2 text-[11px] text-zinc-400">
+                  <span>0h</span><span>{maxH.toFixed(0)}h sueño</span>
+                </div>
+              </Card>
+            </Section>
+          );
+        })()}
+
+        {/* Sueño reciente */}
+        <Section title="Registros de sueño" action={<span className="text-sm text-zinc-500">{state.health.sleep.length} totales</span>}>
+          {state.health.sleep.length === 0 ? (
+            <Card className="p-10 text-center">
+              <Icon name="moon" size={28} className="text-zinc-400"/>
+              <p className="mt-3 text-zinc-500">Sin registros de sueño todavía.</p>
+              <Button className="mt-4" onClick={()=>setSleepOpen(true)}><Icon name="plus" size={16}/> Registrar</Button>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden">
+              {state.health.sleep.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((s, i) => (
+                <div key={s.date} className={`flex items-center gap-4 p-4 ${i>0?'hairline-b':''}`}>
+                  <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple"><Icon name="moon" size={18}/></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{s.h}h <span className="text-zinc-400 font-normal text-sm">· calidad {s.quality}/5</span></div>
+                    <div className="text-xs text-zinc-500 truncate">{fmtDate(s.date,{day:'numeric',month:'short',year:'numeric'})} · {s.bedtime || '—'} → {s.wakeTime || '—'}{s.notes?' · '+s.notes:''}</div>
+                  </div>
+                  <button onClick={()=>{ if (confirm('¿Eliminar este registro?')) { actions.removeSleep(s.date); SoundFX.uncheck(); } }}
+                          className="press h-8 w-8 grid place-items-center rounded-lg hover:bg-paper-softer dark:hover:bg-ink-softer text-zinc-400 hover:text-accent-red"><Icon name="x" size={14}/></button>
+                </div>
+              ))}
+            </Card>
+          )}
+        </Section>
+
+        {/* Entrenos */}
+        <Section title="Entrenos" action={<span className="text-sm text-zinc-500">{state.health.workouts.length} totales</span>}>
+          {state.health.workouts.length === 0 ? (
+            <Card className="p-10 text-center">
+              <Icon name="dumbbell" size={28} className="text-zinc-400"/>
+              <p className="mt-3 text-zinc-500">Sin entrenos registrados.</p>
+              <Button className="mt-4" onClick={()=>setWorkoutOpen(true)}><Icon name="plus" size={16}/> Registrar</Button>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden">
+              {state.health.workouts.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((w, i) => (
+                <div key={w.id} className={`flex items-center gap-4 p-4 ${i>0?'hairline-b':''}`}>
+                  <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-green/10 text-accent-green"><Icon name="dumbbell" size={18}/></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{w.type} · {w.duration} min</div>
+                    <div className="text-xs text-zinc-500 truncate">{fmtDate(w.date,{day:'numeric',month:'short',year:'numeric'})} · intensidad {w.intensity}{w.notes?' · '+w.notes:''}</div>
+                  </div>
+                  <button onClick={()=>{ if (confirm('¿Eliminar este entreno?')) { actions.removeWorkout(w.id); SoundFX.uncheck(); } }}
+                          className="press h-8 w-8 grid place-items-center rounded-lg hover:bg-paper-softer dark:hover:bg-ink-softer text-zinc-400 hover:text-accent-red"><Icon name="x" size={14}/></button>
+                </div>
+              ))}
+            </Card>
+          )}
+        </Section>
+
+        <SleepForm open={sleepOpen} onClose={()=>setSleepOpen(false)}/>
+        <WorkoutForm open={workoutOpen} onClose={()=>setWorkoutOpen(false)}/>
+      </div>
+    );
+  }
+
+  /* =========================================================
      AJUSTES
      ========================================================= */
   function SettingsView() {
@@ -1737,6 +2283,7 @@
     { id: 'calendar', label: 'Calendario',icon: 'calendar-days' },
     { id: 'finances', label: 'Finanzas',  icon: 'wallet' },
     { id: 'events',   label: 'Eventos',   icon: 'store' },
+    { id: 'health',   label: 'Salud',     icon: 'heart-pulse' },
     { id: 'settings', label: 'Ajustes',   icon: 'settings' },
   ];
 
@@ -1773,6 +2320,7 @@
     else if (base === 'calendar') view = <CalendarView/>;
     else if (base === 'finances') view = <FinancesView/>;
     else if (base === 'events') view = sub ? <EventDetail id={sub} back={()=>go('events')}/> : <EventsList go={go}/>;
+    else if (base === 'health') view = <HealthView/>;
     else if (base === 'settings') view = <SettingsView/>;
     else view = <Dashboard go={go}/>;
 
@@ -1802,11 +2350,11 @@
         </main>
 
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 glass hairline-b" style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
-          <div className="grid grid-cols-6">
+          <div className="grid grid-cols-7">
             {NAV.map(n => (
               <button key={n.id} onClick={()=>go(n.id)} className="press flex flex-col items-center gap-0.5 py-2.5">
-                <Icon name={n.icon} size={20} className={activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-400'}/>
-                <span className={`text-[10px] font-medium ${activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-500'}`}>{n.label}</span>
+                <Icon name={n.icon} size={18} className={activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-400'}/>
+                <span className={`text-[9px] font-medium ${activeNav===n.id ? 'text-ink dark:text-white' : 'text-zinc-500'}`}>{n.label}</span>
               </button>
             ))}
           </div>
