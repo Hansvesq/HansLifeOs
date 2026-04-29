@@ -414,7 +414,8 @@
       coin:    () => { tone(987, 0.05, 'square', 0.05); setTimeout(()=>tone(1318, 0.12, 'square', 0.04), 50); },
       cash:    () => { for (let i=0;i<5;i++) setTimeout(()=>tone(1200+Math.random()*800, 0.06, 'square', 0.04), i*40); setTimeout(()=>noise(0.18,0.05), 250); },
       milestone: () => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f, 0.18, 'triangle', 0.08), i*90)); },
-      whoosh:  () => { noise(0.15, 0.025); },
+      whoosh:  () => { tone(620, 0.05, 'sine', 0.025, 0.002, 0.06); setTimeout(()=>tone(880, 0.05, 'sine', 0.018, 0.002, 0.06), 18); },
+      nav:     () => { tone(720, 0.04, 'sine', 0.02, 0.002, 0.05); },
       error:   () => tone(180, 0.18, 'sawtooth', 0.04),
       wake:    () => { ensureCtx(); },
     };
@@ -714,6 +715,7 @@
 
       /* Energía */
       setEnergy: (level) => update(s => {
+        s.energy = s.energy || { current: null, lastUpdated: null, history: [] };
         s.energy.current = level;
         s.energy.lastUpdated = Date.now();
         s.energy.history = (s.energy.history || []).slice(-200);
@@ -721,25 +723,43 @@
         return s;
       }),
 
-      /* Salud */
+      /* Salud — todas defensivas: garantizan estructura antes de mutar */
       addSleep: (entry) => update(s => {
+        s.health = s.health || { sleep: [], hydration: [], workouts: [] };
+        s.health.sleep = s.health.sleep || [];
         const idx = s.health.sleep.findIndex(x => x.date === entry.date);
         if (idx >= 0) s.health.sleep[idx] = { ...s.health.sleep[idx], ...entry };
         else s.health.sleep.push(entry);
         return s;
       }),
-      removeSleep: (date) => update(s => { s.health.sleep = s.health.sleep.filter(x => x.date !== date); return s; }),
+      removeSleep: (date) => update(s => {
+        s.health = s.health || { sleep: [], hydration: [], workouts: [] };
+        s.health.sleep = (s.health.sleep || []).filter(x => x.date !== date);
+        return s;
+      }),
       setHydration: (date, glasses) => update(s => {
+        s.health = s.health || { sleep: [], hydration: [], workouts: [] };
+        s.health.hydration = s.health.hydration || [];
         const idx = s.health.hydration.findIndex(x => x.date === date);
         if (idx >= 0) s.health.hydration[idx].glasses = glasses;
         else s.health.hydration.push({ date, glasses });
         return s;
       }),
-      addWorkout: (entry) => update(s => { s.health.workouts.push({ id: uid(), ...entry }); return s; }),
-      removeWorkout: (id) => update(s => { s.health.workouts = s.health.workouts.filter(x => x.id !== id); return s; }),
+      addWorkout: (entry) => update(s => {
+        s.health = s.health || { sleep: [], hydration: [], workouts: [] };
+        s.health.workouts = s.health.workouts || [];
+        s.health.workouts.push({ id: uid(), ...entry });
+        return s;
+      }),
+      removeWorkout: (id) => update(s => {
+        s.health = s.health || { sleep: [], hydration: [], workouts: [] };
+        s.health.workouts = (s.health.workouts || []).filter(x => x.id !== id);
+        return s;
+      }),
 
       /* Plan semanal */
       saveWeeklyPlan: (plan) => update(s => {
+        s.weeklyPlans = s.weeklyPlans || [];
         const idx = s.weeklyPlans.findIndex(x => x.weekStart === plan.weekStart);
         if (idx >= 0) s.weeklyPlans[idx] = { ...s.weeklyPlans[idx], ...plan };
         else s.weeklyPlans.unshift({ createdAt: Date.now(), ...plan });
@@ -831,8 +851,8 @@
     const today = todayISO();
     const ws = weekStart(today);
     const lastWs = addDays(ws, -7);
-    const existing = state.weeklyPlans.find(p => p.weekStart === ws);
-    const lastPlan = state.weeklyPlans.find(p => p.weekStart === lastWs);
+    const existing = (state.weeklyPlans || []).find(p => p.weekStart === ws);
+    const lastPlan = (state.weeklyPlans || []).find(p => p.weekStart === lastWs);
 
     const [step, setStep] = useState(0);
     const [wins, setWins] = useState('');
@@ -936,9 +956,10 @@
     const { state } = useStore();
     const today = todayISO();
     const ws = weekStart(today);
-    const plan = state.weeklyPlans.find(p => p.weekStart === ws);
+    const plan = (state.weeklyPlans || []).find(p => p.weekStart === ws);
+    const priorities = (plan && plan.priorities) || [];
 
-    if (!plan || (!plan.intention && plan.priorities.length === 0)) return null;
+    if (!plan || (!plan.intention && priorities.length === 0)) return null;
 
     return (
       <Card className="p-5 anim-scale-in card-shine relative overflow-hidden mesh-purple">
@@ -953,9 +974,9 @@
             <Icon name="pencil" size={12}/> editar
           </button>
         </div>
-        {plan.priorities.length > 0 && (
+        {priorities.length > 0 && (
           <ol className="mt-4 space-y-2 relative">
-            {plan.priorities.map((p, i) => (
+            {priorities.map((p, i) => (
               <li key={i} className="flex items-center gap-3 text-[14px]">
                 <span className="h-7 w-7 shrink-0 grid place-items-center rounded-full text-xs font-bold text-white" style={{background:'linear-gradient(135deg,#5E5CE6,#FF375F)'}}>{i+1}</span>
                 <span className="truncate font-medium">{p}</span>
@@ -971,11 +992,11 @@
     const { state, actions } = useStore();
     const today = todayISO();
     const ws = weekStart(today);
-    const plan = state.weeklyPlans.find(p => p.weekStart === ws);
-    const dismissed = state.stats.ritualDismissed?.[ws];
+    const plan = (state.weeklyPlans || []).find(p => p.weekStart === ws);
+    const dismissed = state.stats?.ritualDismissed?.[ws];
     const dow = new Date(today + 'T00:00:00').getDay(); // 0 dom .. 6 sab
     const isWeekend = dow === 0 || dow === 6 || dow === 1; // dom, sab, lun
-    const hasPlan = plan && (plan.intention || plan.priorities.length > 0);
+    const hasPlan = plan && (plan.intention || (plan.priorities||[]).length > 0);
 
     if (hasPlan || dismissed || !isWeekend) return null;
 
@@ -1297,8 +1318,8 @@
     const totalBalance = state.accounts.personal.balance + state.accounts.nakit.balance;
     const activeEvent = state.events.find(e => e.status === 'active');
     const ws = weekStart(date);
-    const weeklyPlan = state.weeklyPlans.find(p => p.weekStart === ws);
-    const hasWeekly = weeklyPlan && (weeklyPlan.intention || weeklyPlan.priorities.length > 0);
+    const weeklyPlan = (state.weeklyPlans || []).find(p => p.weekStart === ws);
+    const hasWeekly = weeklyPlan && (weeklyPlan.intention || (weeklyPlan.priorities||[]).length > 0);
 
     // streak: días consecutivos cumplidos hacia atrás (incluye hoy si está al 100%)
     const streak = useMemo(() => {
@@ -1814,7 +1835,10 @@
                   <span>{c.day}</span>
                   {isToday && <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,.9)]" style={c.status==='empty'?{background:'#0A84FF'}:undefined}/>}
                   {c.total > 0 && c.status !== 'done' && c.status !== 'failed' && c.status !== 'partial' && (
-                    <span className="absolute top-1.5 right-1.5 text-[9px] text-zinc-500 tabular">{c.done}/{c.total}</span>
+                    <span className="hidden sm:inline absolute top-1.5 right-1.5 text-[9px] text-zinc-500 tabular">{c.done}/{c.total}</span>
+                  )}
+                  {c.total > 0 && c.status !== 'done' && c.status !== 'failed' && c.status !== 'partial' && (
+                    <span className="sm:hidden absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent-blue/70"/>
                   )}
                 </button>
               );
@@ -1881,7 +1905,12 @@
     useEffect(() => { if (open) { setAccount('personal'); setType('expense'); setAmount(''); setCategory('Comida'); setNote(''); setDate(todayISO()); } }, [open]);
     useEffect(() => { setCategory(type === 'income' ? CATEGORIAS_INGRESO[0] : CATEGORIAS_GASTO[0]); }, [type]);
     const cats = type === 'income' ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO;
-    const save = () => { const a = parseFloat(amount); if (!a||a<=0) return; actions.addTransaction({ account, type, amount: a, category, note, date }); SoundFX.coin(); onClose(); };
+    const save = () => {
+      const a = parseFloat(amount); if (!a||a<=0) return;
+      try { actions.addTransaction({ account, type, amount: a, category, note, date }); SoundFX.coin(); }
+      catch (e) { console.error('addTransaction failed:', e); SoundFX.error?.(); }
+      finally { onClose(); }
+    };
     return (
       <Sheet open={open} onClose={onClose} title="Nuevo movimiento"
              footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={save}>Guardar</Button></div>}>
@@ -2255,7 +2284,11 @@
     useEffect(() => { if (open) { setDate(todayISO()); setHours(7); setQuality(3); setBedtime('23:00'); setWakeTime('06:30'); setNotes(''); } }, [open]);
     return (
       <Sheet open={open} onClose={onClose} title="Registrar sueño"
-             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{actions.addSleep({date, h: +hours, quality, bedtime, wakeTime, notes: notes.trim()}); SoundFX.success(); onClose();}}>Guardar</Button></div>}>
+             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{
+               try { actions.addSleep({date, h: +hours, quality, bedtime, wakeTime, notes: notes.trim()}); SoundFX.success(); }
+               catch (e) { console.error('addSleep failed:', e); }
+               finally { onClose(); }
+             }}>Guardar</Button></div>}>
         <div className="space-y-4">
           <label className="block"><span className="text-sm text-zinc-500">Fecha</span><Input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1"/></label>
           <div className="grid grid-cols-2 gap-3">
@@ -2288,7 +2321,12 @@
     useEffect(() => { if (open) { setDate(todayISO()); setType('Fuerza'); setDuration(60); setIntensity('media'); setNotes(''); } }, [open]);
     return (
       <Sheet open={open} onClose={onClose} title="Registrar entreno"
-             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{const d = parseInt(duration); if (!d) return; actions.addWorkout({date, type, duration: d, intensity, notes: notes.trim()}); SoundFX.success(); onClose();}}>Guardar</Button></div>}>
+             footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={()=>{
+               const d = parseInt(duration); if (!d) return;
+               try { actions.addWorkout({date, type, duration: d, intensity, notes: notes.trim()}); SoundFX.success(); }
+               catch (e) { console.error('addWorkout failed:', e); }
+               finally { onClose(); }
+             }}>Guardar</Button></div>}>
         <div className="space-y-4">
           <label className="block"><span className="text-sm text-zinc-500">Fecha</span><Input type="date" value={date} onChange={e=>setDate(e.target.value)} className="mt-1"/></label>
           <div>
@@ -2324,13 +2362,18 @@
     const [sleepOpen, setSleepOpen] = useState(false);
     const [workoutOpen, setWorkoutOpen] = useState(false);
 
-    const todayHydration = state.health.hydration.find(x => x.date === today)?.glasses || 0;
+    // lecturas seguras
+    const sleepArr = (state.health && state.health.sleep) || [];
+    const hydArr = (state.health && state.health.hydration) || [];
+    const workArr = (state.health && state.health.workouts) || [];
+
+    const todayHydration = hydArr.find(x => x.date === today)?.glasses || 0;
     const last7 = useMemo(() => Array.from({length:7}, (_,i) => addDays(today, -(6-i))), [today]);
     const last30 = useMemo(() => Array.from({length:30}, (_,i) => addDays(today, -(29-i))), [today]);
-    const sleep7 = last7.map(d => state.health.sleep.find(x => x.date === d)?.h || 0);
+    const sleep7 = last7.map(d => sleepArr.find(x => x.date === d)?.h || 0);
     const avg7 = sleep7.filter(x => x > 0).length ? (sleep7.filter(x=>x>0).reduce((a,b)=>a+b,0) / sleep7.filter(x=>x>0).length) : 0;
-    const workoutsLast30 = state.health.workouts.filter(w => last30.includes(w.date));
-    const workoutsThisWeek = state.health.workouts.filter(w => last7.includes(w.date));
+    const workoutsLast30 = workArr.filter(w => last30.includes(w.date));
+    const workoutsThisWeek = workArr.filter(w => last7.includes(w.date));
 
     const setGlasses = (n) => actions.setHydration(today, n);
 
@@ -2401,7 +2444,7 @@
         {/* Correlación sueño vs cumplimiento */}
         {(()=>{
           const points = last30.map(d => {
-            const sl = state.health.sleep.find(x=>x.date===d)?.h;
+            const sl = sleepArr.find(x=>x.date===d)?.h;
             if (!sl) return null;
             const ds = dayStatus(state, d);
             return { d, h: sl, score: ds.score, status: ds.status };
@@ -2432,8 +2475,8 @@
         })()}
 
         {/* Sueño reciente */}
-        <Section title="Registros de sueño" action={<span className="text-sm text-zinc-500">{state.health.sleep.length} totales</span>}>
-          {state.health.sleep.length === 0 ? (
+        <Section title="Registros de sueño" action={<span className="text-sm text-zinc-500">{sleepArr.length} totales</span>}>
+          {sleepArr.length === 0 ? (
             <Card className="p-10 text-center">
               <Icon name="moon" size={28} className="text-zinc-400"/>
               <p className="mt-3 text-zinc-500">Sin registros de sueño todavía.</p>
@@ -2441,7 +2484,7 @@
             </Card>
           ) : (
             <Card className="overflow-hidden">
-              {state.health.sleep.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((s, i) => (
+              {sleepArr.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((s, i) => (
                 <div key={s.date} className={`flex items-center gap-4 p-4 ${i>0?'hairline-b':''}`}>
                   <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple"><Icon name="moon" size={18}/></div>
                   <div className="min-w-0 flex-1">
@@ -2457,8 +2500,8 @@
         </Section>
 
         {/* Entrenos */}
-        <Section title="Entrenos" action={<span className="text-sm text-zinc-500">{state.health.workouts.length} totales</span>}>
-          {state.health.workouts.length === 0 ? (
+        <Section title="Entrenos" action={<span className="text-sm text-zinc-500">{workArr.length} totales</span>}>
+          {workArr.length === 0 ? (
             <Card className="p-10 text-center">
               <Icon name="dumbbell" size={28} className="text-zinc-400"/>
               <p className="mt-3 text-zinc-500">Sin entrenos registrados.</p>
@@ -2466,7 +2509,7 @@
             </Card>
           ) : (
             <Card className="overflow-hidden">
-              {state.health.workouts.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((w, i) => (
+              {workArr.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 14).map((w, i) => (
                 <div key={w.id} className={`flex items-center gap-4 p-4 ${i>0?'hairline-b':''}`}>
                   <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-green/10 text-accent-green"><Icon name="dumbbell" size={18}/></div>
                   <div className="min-w-0 flex-1">
@@ -2605,7 +2648,7 @@
       return () => { window.removeEventListener('pointerdown', wake); window.removeEventListener('keydown', wake); };
     }, []);
 
-    const go = (r) => { window.scrollTo({ top: 0, behavior: 'instant' }); SoundFX.whoosh(); setRoute(r); };
+    const go = (r) => { window.scrollTo({ top: 0, behavior: 'instant' }); SoundFX.nav(); setRoute(r); };
 
     if (showLogin && !auth) return <Login onSkip={()=>setShowLogin(false)}/>;
     if (!state.profile.onboarded) return <Onboarding onDone={()=>{}}/>;
@@ -2687,8 +2730,38 @@
     );
   }
 
+  /* =========================================================
+     ERROR BOUNDARY — evita que un error de render ponga la pantalla en negro.
+     ========================================================= */
+  class ErrorBoundary extends React.Component {
+    constructor(props){ super(props); this.state={hasError:false,error:null}; }
+    static getDerivedStateFromError(error){ return {hasError:true, error}; }
+    componentDidCatch(error, info){ try{ console.error('Vida ErrorBoundary:', error, info); }catch(e){} }
+    reset = () => this.setState({hasError:false, error:null});
+    render(){
+      if (this.state.hasError) {
+        return (
+          <div className="min-h-full grid place-items-center p-6">
+            <div className="max-w-md text-center anim-in">
+              <div className="h-14 w-14 rounded-3xl bg-accent-red/15 text-accent-red grid place-items-center mx-auto mb-4">
+                <Icon name="alert-triangle" size={26}/>
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Algo se rompió</h1>
+              <p className="text-zinc-500 dark:text-zinc-400 mt-2">No te preocupes — tus datos están guardados. Toca el botón para volver al inicio.</p>
+              <pre className="text-[11px] text-zinc-400 mt-3 max-h-32 overflow-auto bg-paper-softer dark:bg-ink-soft p-2 rounded-xl text-left">{String(this.state.error)}</pre>
+              <button onClick={this.reset} className="mt-4 inline-flex items-center justify-center gap-2 h-10 px-5 rounded-2xl bg-ink text-white dark:bg-white dark:text-ink font-medium press-spring">
+                Reintentar
+              </button>
+            </div>
+          </div>
+        );
+      }
+      return this.props.children;
+    }
+  }
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<StoreProvider><App /></StoreProvider>);
+  root.render(<ErrorBoundary><StoreProvider><App /></StoreProvider></ErrorBoundary>);
 
   setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
   </script>
