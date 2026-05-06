@@ -778,11 +778,25 @@
           useRemote = true;
         }
         if (useRemote) {
+          // Deep merge de accounts: cada cuenta default + valores guardados (preserva color/icon/enabled/order)
+          const accounts = {};
+          Object.keys(defaultState.accounts).forEach(id => {
+            accounts[id] = { ...defaultState.accounts[id], ...((remote.accounts||{})[id] || {}) };
+          });
+          if (remote.accounts) for (const k of Object.keys(remote.accounts)) if (!(k in accounts)) accounts[k] = remote.accounts[k];
           setState({ ...defaultState, ...remote,
             profile: { ...defaultState.profile, ...(remote.profile||{}) },
-            accounts: { ...defaultState.accounts, ...(remote.accounts||{}) },
+            accounts,
             settings: { ...defaultState.settings, ...(remote.settings||{}) },
             stats: { ...defaultState.stats, ...(remote.stats||{}) },
+            energy: { ...defaultState.energy, ...(remote.energy||{}) },
+            health: { ...defaultState.health, ...(remote.health||{}) },
+            weeklyPlans: remote.weeklyPlans || [],
+            transfers: remote.transfers || [],
+            pending: remote.pending || [],
+            budgets: remote.budgets || {},
+            customCategories: { income: (remote.customCategories?.income)||[], expense: (remote.customCategories?.expense)||[] },
+            netWorthHistory: remote.netWorthHistory || [],
           });
         }
         const newAuth = { token, user: { login: user.login, name: user.name, avatar: user.avatar_url }, gistId };
@@ -804,10 +818,12 @@
       setAccounts: (patch) => update(s => { Object.assign(s.accounts, patch); return s; }),
 
       addTransaction: (tx) => update(s => {
+        s.transactions = s.transactions || [];
+        s.accounts = s.accounts || {};
         const t = { id: uid(), date: todayISO(), ...tx };
         s.transactions.unshift(t);
         const acc = s.accounts[t.account];
-        if (acc) acc.balance += (t.type === 'income' ? +t.amount : -+t.amount);
+        if (acc) acc.balance = (acc.balance || 0) + (t.type === 'income' ? +t.amount : -+t.amount);
         return s;
       }),
       updateTransaction: (id, patch) => update(s => {
@@ -1170,8 +1186,9 @@
      FINANZAS · helpers
      ========================================================= */
   function enabledAccounts(state) {
-    return Object.entries(state.accounts || {})
-      .filter(([,a]) => a.enabled)
+    if (!state || !state.accounts) return [];
+    return Object.entries(state.accounts)
+      .filter(([,a]) => a && a.enabled)
       .sort((a,b) => (a[1].order||0) - (b[1].order||0))
       .map(([id, a]) => ({ id, ...a }));
   }
@@ -1801,30 +1818,15 @@
   }
 
   function Sheet({ open, onClose, title, children, footer }) {
-    const bodyRef = useRef(null);
-
-    // Bloquear scroll del body cuando el sheet está abierto
+    // Bloquear scroll del body — cleanup robusto incluso si el Sheet falla en render
     useEffect(() => {
       if (!open) return;
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = prev; };
-    }, [open]);
-
-    // Scroll-into-view automático del input enfocado (mobile sobre todo, donde el teclado tapa)
-    useEffect(() => {
-      if (!open || !bodyRef.current) return;
-      const body = bodyRef.current;
-      const onFocus = (e) => {
-        const t = e.target;
-        if (!t || !t.matches || !t.matches('input,textarea,select')) return;
-        // Esperar a que el teclado se levante (≈250ms en iOS)
-        setTimeout(() => {
-          try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
-        }, 280);
-      };
-      body.addEventListener('focusin', onFocus);
-      return () => body.removeEventListener('focusin', onFocus);
+      const restore = () => { try { document.body.style.overflow = prev || ''; } catch (_) {} };
+      // Failsafe: si el sheet queda colgado, al cambiar route restauramos
+      window.addEventListener('beforeunload', restore);
+      return () => { restore(); window.removeEventListener('beforeunload', restore); };
     }, [open]);
 
     if (!open) return null;
@@ -1832,16 +1834,16 @@
     return (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm anim-in" onClick={onClose}/>
-        <div className="relative w-full sm:max-w-lg bg-white dark:bg-ink-soft rounded-t-4xl sm:rounded-3xl shadow-lift anim-sheet sm:anim-scale-in max-h-[92dvh] flex flex-col"
-             style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
+        <div className="relative w-full sm:max-w-lg bg-white dark:bg-ink-soft rounded-t-4xl sm:rounded-3xl shadow-lift anim-sheet sm:anim-scale-in flex flex-col"
+             style={{paddingBottom:'env(safe-area-inset-bottom)', maxHeight:'92vh'}}>
           <div className="sm:hidden sheet-handle"/>
           <div className="flex items-center justify-between p-5 pt-3 sm:pt-5 hairline-b shrink-0">
             <h3 className="text-lg font-semibold">{title}</h3>
             <button onClick={()=>{SoundFX.tap(); onClose();}} className="press h-8 w-8 grid place-items-center rounded-full hover:bg-paper-softer dark:hover:bg-ink-softer"><Icon name="x" size={18}/></button>
           </div>
-          <div ref={bodyRef} className="p-5 overflow-y-auto flex-1" style={{WebkitOverflowScrolling:'touch'}}>{children}</div>
+          <div className="p-5 overflow-y-auto flex-1" style={{WebkitOverflowScrolling:'touch', minHeight:0}}>{children}</div>
           {footer && (
-            <div className="p-5 shrink-0 sticky bottom-0 z-10 bg-white dark:bg-ink-soft hairline-b" style={{boxShadow:'0 -8px 24px rgba(0,0,0,.04)'}}>
+            <div className="p-5 shrink-0 bg-white dark:bg-ink-soft hairline-b">
               {footer}
             </div>
           )}
@@ -1857,28 +1859,10 @@
 
   function Tabs({ items, value, onChange, className = '' }) {
     const wrapRef = useRef(null);
+    const lastValueRef = useRef(value);
     const [pill, setPill] = useState({ left: 4, width: 0, ready: false });
-    const compute = useCallback(() => {
-      const idx = Math.max(0, items.findIndex(i => i.value === value));
-      const btns = wrapRef.current?.querySelectorAll('button');
-      const btn = btns?.[idx];
-      if (!btn || !wrapRef.current) return;
-      const sl = wrapRef.current.scrollLeft;
-      const wrap = wrapRef.current.getBoundingClientRect();
-      const r = btn.getBoundingClientRect();
-      setPill({ left: r.left - wrap.left + sl, width: r.width, ready: true });
-      // auto-scroll para que el activo sea visible
-      try { btn.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch {}
-    }, [items, value]);
-    useEffect(() => { compute(); }, [compute]);
-    useEffect(() => {
-      const onResize = () => compute();
-      window.addEventListener('resize', onResize);
-      return () => window.removeEventListener('resize', onResize);
-    }, [compute]);
-    useEffect(() => {
-      const onScroll = () => {
-        // Sólo actualizamos pill (transform) — barata operación
+    const positionPill = useCallback(() => {
+      try {
         const idx = Math.max(0, items.findIndex(i => i.value === value));
         const btns = wrapRef.current?.querySelectorAll('button');
         const btn = btns?.[idx];
@@ -1886,7 +1870,43 @@
         const sl = wrapRef.current.scrollLeft;
         const wrap = wrapRef.current.getBoundingClientRect();
         const r = btn.getBoundingClientRect();
-        setPill(p => ({ ...p, left: r.left - wrap.left + sl }));
+        setPill({ left: r.left - wrap.left + sl, width: r.width, ready: true });
+      } catch (_) {}
+    }, [items, value]);
+    // Posicionamiento del pill
+    useEffect(() => { positionPill(); }, [positionPill]);
+    // Auto-scroll horizontal SOLO cuando cambia el valor (no en cada render)
+    useEffect(() => {
+      if (lastValueRef.current === value) return;
+      lastValueRef.current = value;
+      try {
+        const idx = Math.max(0, items.findIndex(i => i.value === value));
+        const btns = wrapRef.current?.querySelectorAll('button');
+        const btn = btns?.[idx];
+        if (btn && wrapRef.current) {
+          const wrap = wrapRef.current;
+          const targetLeft = btn.offsetLeft - wrap.clientWidth/2 + btn.clientWidth/2;
+          wrap.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+        }
+      } catch (_) {}
+    }, [value, items]);
+    useEffect(() => {
+      const onResize = () => positionPill();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [positionPill]);
+    useEffect(() => {
+      const onScroll = () => {
+        try {
+          const idx = Math.max(0, items.findIndex(i => i.value === value));
+          const btns = wrapRef.current?.querySelectorAll('button');
+          const btn = btns?.[idx];
+          if (!btn || !wrapRef.current) return;
+          const sl = wrapRef.current.scrollLeft;
+          const wrap = wrapRef.current.getBoundingClientRect();
+          const r = btn.getBoundingClientRect();
+          setPill(p => ({ ...p, left: r.left - wrap.left + sl }));
+        } catch (_) {}
       };
       const el = wrapRef.current;
       el?.addEventListener('scroll', onScroll, { passive: true });
@@ -4889,10 +4909,21 @@
 
   function FAB({ go }) {
     const [open, setOpen] = useState(false);
+    // Cierre del menú al clickear fuera — sólo cuando está abierto, usando mousedown que dispara antes del click
+    // Así no interferimos con clicks normales en otros botones de la app.
     useEffect(() => {
-      const close = (e) => { if (open && !e.target.closest('[data-fab-root]')) setOpen(false); };
-      document.addEventListener('click', close);
-      return () => document.removeEventListener('click', close);
+      if (!open) return;
+      const close = (e) => {
+        try {
+          if (e.target && e.target.closest && !e.target.closest('[data-fab-root]')) setOpen(false);
+        } catch (_) {}
+      };
+      document.addEventListener('mousedown', close);
+      document.addEventListener('touchstart', close, { passive: true });
+      return () => {
+        document.removeEventListener('mousedown', close);
+        document.removeEventListener('touchstart', close);
+      };
     }, [open]);
     const trigger = (kind) => {
       const dest = ({ tx:'finances', todo:'today', transfer:'finances', pending:'finances', energy:'home', workout:'health', sleep:'health' })[kind] || 'home';
