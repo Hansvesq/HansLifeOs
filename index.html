@@ -340,7 +340,12 @@
     .topnav-btn { position: relative; z-index: 1; }
 
     /* Tabs animadas con indicador */
-    .tabs-wrap { position: relative; display: inline-flex; padding: 4px; background: rgb(244,244,245); border-radius: 14px; }
+    .tabs-wrap {
+      position: relative; display: flex; padding: 4px; background: rgb(244,244,245); border-radius: 14px;
+      overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; scroll-snap-type: x proximity;
+    }
+    .tabs-wrap::-webkit-scrollbar { display: none; }
     .dark .tabs-wrap { background: rgb(28,28,30); }
     .tabs-pill {
       position: absolute; top: 4px; bottom: 4px; left: 0;
@@ -351,10 +356,13 @@
       z-index: 0;
     }
     .dark .tabs-pill { background: rgb(58,58,60); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
-    .tabs-btn { position: relative; z-index: 1; padding: 6px 14px; font-size: 13px; font-weight: 600; color: rgb(115,115,115); transition: color .2s; -webkit-tap-highlight-color: transparent; }
+    .tabs-btn { position: relative; z-index: 1; padding: 8px 14px; font-size: 13px; font-weight: 600; color: rgb(115,115,115); transition: color .2s; -webkit-tap-highlight-color: transparent; white-space: nowrap; flex-shrink: 0; scroll-snap-align: start; }
     .tabs-btn[data-active="true"] { color: #0a0a0a; }
     .dark .tabs-btn { color: rgb(161,161,170); }
     .dark .tabs-btn[data-active="true"] { color: #ffffff; }
+    @media (max-width: 640px) {
+      .tabs-wrap { width: 100%; }
+    }
 
     /* Glow ring para checkboxes completados */
     @keyframes ringPop {
@@ -648,6 +656,7 @@
     },
     transactions: [],
     transfers: [],      // { id, from, to, amount, date, note, verified }
+    pending: [],        // { id, direction:'in'|'out', title, amount, account, category, expectedDate, fixed, recurring, recurringPeriod, status:'pending'|'received'|'paid'|'cancelled', note, createdAt, paidAt, convertedToTxId }
     habits: [],
     todos: [],          // { id, text, areaId, date(YYYY-MM-DD), createdAt, completedAt|null }
     events: [],
@@ -702,6 +711,7 @@
         health: { ...defaultState.health, ...(p.health||{}) },
         weeklyPlans: p.weeklyPlans || [],
         transfers: p.transfers || [],
+        pending: p.pending || [],
         budgets: p.budgets || {},
         customCategories: { income: (p.customCategories?.income)||[], expense: (p.customCategories?.expense)||[] },
         netWorthHistory: p.netWorthHistory || [],
@@ -985,6 +995,96 @@
         return s;
       }),
 
+      /* ============== Pendientes (cuentas por cobrar / por pagar) ============== */
+      addPending: (p) => update(s => {
+        s.pending = s.pending || [];
+        s.pending.unshift({
+          id: uid(),
+          direction: 'in',
+          title: '',
+          amount: 0,
+          account: 'personal',
+          category: '',
+          expectedDate: todayISO(),
+          fixed: false,
+          recurring: false,
+          recurringPeriod: 'monthly',
+          status: 'pending',
+          note: '',
+          createdAt: Date.now(),
+          paidAt: null,
+          convertedToTxId: null,
+          ...p,
+        });
+        return s;
+      }),
+      updatePending: (id, patch) => update(s => {
+        const it = (s.pending || []).find(x => x.id === id);
+        if (it) Object.assign(it, patch);
+        return s;
+      }),
+      removePending: (id) => update(s => {
+        s.pending = (s.pending || []).filter(x => x.id !== id);
+        return s;
+      }),
+      // Confirmar = materializar como transacción real y marcar como recibido/pagado.
+      // Si es recurrente, generar la siguiente instancia con expectedDate += período.
+      confirmPending: (id, opts = {}) => update(s => {
+        const it = (s.pending || []).find(x => x.id === id);
+        if (!it || it.status !== 'pending') return s;
+        const useDate = opts.date || todayISO();
+        const useAmount = opts.amount != null ? +opts.amount : +it.amount;
+        const useAccount = opts.account || it.account;
+        const tx = {
+          id: uid(),
+          date: useDate,
+          type: it.direction === 'in' ? 'income' : 'expense',
+          amount: useAmount,
+          account: useAccount,
+          category: it.category || (it.direction === 'in' ? 'Otros' : 'Otros'),
+          note: it.note ? `${it.title} · ${it.note}` : it.title,
+          recurring: false,
+          verified: false,
+        };
+        s.transactions.unshift(tx);
+        const acc = s.accounts[tx.account];
+        if (acc) acc.balance += tx.type === 'income' ? +tx.amount : -+tx.amount;
+        it.status = it.direction === 'in' ? 'received' : 'paid';
+        it.paidAt = Date.now();
+        it.convertedToTxId = tx.id;
+
+        // Si era recurrente, crear el siguiente
+        if (it.recurring) {
+          const d = new Date((it.expectedDate || useDate) + 'T00:00:00');
+          if (it.recurringPeriod === 'weekly') d.setDate(d.getDate() + 7);
+          else if (it.recurringPeriod === 'yearly') d.setFullYear(d.getFullYear() + 1);
+          else d.setMonth(d.getMonth() + 1);
+          s.pending.unshift({
+            id: uid(),
+            direction: it.direction,
+            title: it.title,
+            amount: +it.amount,
+            account: it.account,
+            category: it.category,
+            expectedDate: isoOf(d),
+            fixed: !!it.fixed,
+            recurring: true,
+            recurringPeriod: it.recurringPeriod,
+            status: 'pending',
+            note: it.note,
+            createdAt: Date.now(),
+            paidAt: null,
+            convertedToTxId: null,
+          });
+        }
+        return s;
+      }),
+      cancelPending: (id) => update(s => {
+        const it = (s.pending || []).find(x => x.id === id);
+        if (it) { it.status = 'cancelled'; it.paidAt = Date.now(); }
+        return s;
+      }),
+
       // Snapshot del patrimonio neto (1 por día)
       snapshotNetWorth: () => update(s => {
         const today = todayISO();
@@ -1113,6 +1213,58 @@
     if (!list.length) return 0;
     return list.reduce((a, b) => a + b, 0) / list.length;
   }
+  // Cash flow esperado por pendientes en una ventana de N días
+  function expectedCashFlow(state, days = 30) {
+    const today = todayISO();
+    const endDate = addDays(today, days);
+    let inMoney = 0, outMoney = 0;
+    const items = (state.pending || []).filter(p => p.status === 'pending');
+    for (const p of items) {
+      if (!p.expectedDate || p.expectedDate > endDate) continue;
+      if (p.direction === 'in') inMoney += +p.amount;
+      else outMoney += +p.amount;
+    }
+    return { inMoney, outMoney, net: inMoney - outMoney };
+  }
+  // Plata disponible para gastar libre = balance + ingresos esperados pendientes - gastos fijos pendientes - gasto variable promedio restante del mes
+  function availableMoney(state, scope = 'month') {
+    const today = todayISO();
+    // Días restantes del mes
+    const d = new Date(today + 'T00:00:00');
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const daysLeft = Math.max(1, Math.round((last - d) / 86400000) + 1);
+    const days = scope === 'week' ? 7 : daysLeft;
+    const balance = netWorth(state);
+    const expected = expectedCashFlow(state, days);
+    // gasto variable promedio diario (3M) prorrateado a los días que quedan
+    const avgMonthly = avgMonthlySpend(state, 3);
+    const avgDaily = avgMonthly / 30;
+    // gasto del mes ya ejecutado (lo descontamos del avg estimado para no contar dos veces)
+    const m = monthKey(today);
+    const cur = monthSummary(state, m);
+    const projectedRemainingVarSpend = Math.max(0, avgDaily * days - 0); // simple: días por avg
+    const available = balance + expected.inMoney - expected.outMoney - projectedRemainingVarSpend;
+    return { available, balance, expectedIn: expected.inMoney, expectedOut: expected.outMoney, projectedRemainingVarSpend, daysLeft, days };
+  }
+  // Sugiere presupuestos basados en promedio últimos 3 meses + 10% buffer
+  function suggestBudgets(state) {
+    const today = todayISO();
+    const acc = {};
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(today + 'T00:00:00'); d.setMonth(d.getMonth() - i);
+      const ms = monthSummary(state, isoOf(d).slice(0, 7));
+      Object.entries(ms.byCat).forEach(([c, v]) => { acc[c] = (acc[c] || 0) + v; });
+    }
+    const cats = Object.entries(acc).map(([cat, total]) => ({
+      cat,
+      avg: total / 3,
+      suggested: Math.ceil((total / 3) * 1.1 / 1000) * 1000, // round up to nearest 1000
+      current: state.budgets?.[cat] || 0,
+    })).filter(x => x.avg >= 1000) // ignorar categorías triviales
+      .sort((a, b) => b.avg - a.avg);
+    return cats;
+  }
+
   function recurringMonthlyImpact(state) {
     // suma neto/mes de las transacciones recurrentes (semilla con recurring=true && !parentId)
     const seeds = (state.transactions || []).filter(t => t.recurring && !t.parentId);
@@ -1256,7 +1408,40 @@
       });
     }
 
-    // 7. Disponible para invertir o ahorrar más
+    // 7. Plata disponible este mes (incluye pendientes)
+    const av = availableMoney(state, 'month');
+    if (av.daysLeft > 0) {
+      out.push({
+        tone: av.available > 0 ? 'good' : 'warn',
+        icon: 'wallet-cards',
+        title: `Disponible · ${av.daysLeft} días restantes`,
+        value: fmtMoney(av.available),
+        hint: av.available > 0
+          ? `Saldo ${fmtMoney(av.balance)} + por cobrar ${fmtMoney(av.expectedIn)} − por pagar ${fmtMoney(av.expectedOut)} − gasto típico restante ${fmtMoney(av.projectedRemainingVarSpend)}.`
+          : 'Tu plata no alcanza para tus gastos típicos del mes. Revisa pendientes y ajusta.',
+      });
+    }
+
+    // 8. Próximos por cobrar (30 días)
+    const exp30 = expectedCashFlow(state, 30);
+    if (exp30.inMoney > 0) {
+      out.push({
+        tone: 'info', icon: 'inbox',
+        title: 'Por cobrar · próx. 30 días',
+        value: fmtMoney(exp30.inMoney),
+        hint: 'Plata comprometida que llega pronto. Úsala para presupuestar.',
+      });
+    }
+    if (exp30.outMoney > 0) {
+      out.push({
+        tone: 'warn', icon: 'calendar-clock',
+        title: 'Por pagar · próx. 30 días',
+        value: fmtMoney(exp30.outMoney),
+        hint: 'Gastos fijos / comprometidos por venir. Asegurá liquidez.',
+      });
+    }
+
+    // 9. Disponible para invertir o ahorrar más
     if (avgExp > 0 && ahorros > avgExp * 6 && ahorrosEnabled) {
       const excedente = ahorros - avgExp * 6;
       out.push({
@@ -1673,15 +1858,40 @@
   function Tabs({ items, value, onChange, className = '' }) {
     const wrapRef = useRef(null);
     const [pill, setPill] = useState({ left: 4, width: 0, ready: false });
-    useEffect(() => {
+    const compute = useCallback(() => {
       const idx = Math.max(0, items.findIndex(i => i.value === value));
       const btns = wrapRef.current?.querySelectorAll('button');
       const btn = btns?.[idx];
-      if (!btn) return;
+      if (!btn || !wrapRef.current) return;
+      const sl = wrapRef.current.scrollLeft;
       const wrap = wrapRef.current.getBoundingClientRect();
       const r = btn.getBoundingClientRect();
-      setPill({ left: r.left - wrap.left, width: r.width, ready: true });
-    }, [value, items.length]);
+      setPill({ left: r.left - wrap.left + sl, width: r.width, ready: true });
+      // auto-scroll para que el activo sea visible
+      try { btn.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch {}
+    }, [items, value]);
+    useEffect(() => { compute(); }, [compute]);
+    useEffect(() => {
+      const onResize = () => compute();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [compute]);
+    useEffect(() => {
+      const onScroll = () => {
+        // Sólo actualizamos pill (transform) — barata operación
+        const idx = Math.max(0, items.findIndex(i => i.value === value));
+        const btns = wrapRef.current?.querySelectorAll('button');
+        const btn = btns?.[idx];
+        if (!btn || !wrapRef.current) return;
+        const sl = wrapRef.current.scrollLeft;
+        const wrap = wrapRef.current.getBoundingClientRect();
+        const r = btn.getBoundingClientRect();
+        setPill(p => ({ ...p, left: r.left - wrap.left + sl }));
+      };
+      const el = wrapRef.current;
+      el?.addEventListener('scroll', onScroll, { passive: true });
+      return () => el?.removeEventListener('scroll', onScroll);
+    }, [items, value]);
     return (
       <div ref={wrapRef} className={`tabs-wrap ${className}`}>
         <span className="tabs-pill" style={{ transform: `translateX(${pill.left}px)`, width: pill.width, opacity: pill.ready ? 1 : 0 }}/>
@@ -2832,16 +3042,22 @@
     const cats = categoriesFor(state, 'expense');
     const [editing, setEditing] = useState(null); // categoria string or null
     const [val, setVal] = useState('');
+    const [suggestOpen, setSuggestOpen] = useState(false);
 
     const startEdit = (cat) => { setEditing(cat); setVal(state.budgets[cat] ? String(state.budgets[cat]) : ''); };
     const save = () => {
       const v = parseFloat(val);
       if (editing) actions.setBudget(editing, isNaN(v) ? 0 : v);
       setEditing(null); setVal('');
-      SoundFX.success();
+      SoundFX.success(); Toast.success('Presupuesto guardado');
     };
 
     return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 px-1">Presupuesto · {fmtDate(today,{month:'long'})}</div>
+          <Button size="sm" variant="secondary" onClick={()=>setSuggestOpen(true)}><Icon name="sparkles" size={14}/> Sugerir</Button>
+        </div>
       <div className="space-y-2 stagger">
         {cats.map(cat => {
           const used = cur.byCat[cat] || 0;
@@ -2875,6 +3091,67 @@
           );
         })}
       </div>
+      <BudgetSuggestSheet open={suggestOpen} onClose={()=>setSuggestOpen(false)}/>
+      </div>
+    );
+  }
+
+  function BudgetSuggestSheet({ open, onClose }) {
+    const { state, actions } = useStore();
+    const suggestions = useMemo(() => suggestBudgets(state), [state]);
+    const [picked, setPicked] = useState({});
+    useEffect(() => {
+      if (!open) return;
+      // Por defecto, marcamos todos los que tienen sugerencia distinta al actual
+      const init = {};
+      suggestions.forEach(s => { if (s.suggested !== s.current) init[s.cat] = true; });
+      setPicked(init);
+    }, [open]);
+    const toggle = (cat) => setPicked(p => ({ ...p, [cat]: !p[cat] }));
+    const apply = () => {
+      let n = 0;
+      suggestions.forEach(s => { if (picked[s.cat]) { actions.setBudget(s.cat, s.suggested); n++; } });
+      onClose();
+      if (n > 0) { SoundFX.success(); Toast.success(`Aplicado a ${n} ${n===1?'categoría':'categorías'}`); }
+    };
+    const totalSuggested = suggestions.filter(s => picked[s.cat]).reduce((a, s) => a + s.suggested, 0);
+    return (
+      <Sheet open={open} onClose={onClose} title="Sugerencias de presupuesto"
+             footer={
+               <div className="flex justify-end gap-2 items-center">
+                 <span className="text-xs text-zinc-500 mr-auto tabular">{Object.values(picked).filter(Boolean).length} seleccionadas · total {fmtMoney(totalSuggested)}</span>
+                 <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                 <Button onClick={apply} disabled={Object.values(picked).filter(Boolean).length===0}>Aplicar</Button>
+               </div>
+             }>
+        <p className="text-sm text-zinc-500 leading-relaxed mb-4">Basado en tu promedio de gastos los últimos 3 meses, +10% de buffer, redondeado a ₡1.000. Tocá las categorías que querés aplicar.</p>
+        {suggestions.length === 0 ? (
+          <div className="text-center py-8 text-zinc-500 text-sm">Aún no tenés suficiente histórico (3 meses) para sugerir presupuestos.</div>
+        ) : (
+          <div className="space-y-2">
+            {suggestions.map(s => {
+              const sel = picked[s.cat];
+              const same = s.suggested === s.current;
+              return (
+                <button key={s.cat} onClick={()=>toggle(s.cat)} className={`w-full text-left flex items-center gap-3 p-3 rounded-2xl transition press ${sel?'bg-accent-blue/10':'bg-paper-softer dark:bg-ink-softer'}`} style={sel?{boxShadow:'inset 0 0 0 1px rgba(10,132,255,.4)'}:undefined}>
+                  <div className={`h-5 w-5 grid place-items-center rounded-full transition border-2 shrink-0 ${sel?'bg-accent-blue border-accent-blue text-white':'border-zinc-400'}`}>
+                    {sel && <Icon name="check" size={11}/>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{s.cat}</div>
+                    <div className="text-[11px] text-zinc-500">Promedio 3M: {fmtMoney(s.avg)}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {s.current > 0 && <div className="text-[11px] text-zinc-400 tabular line-through">{fmtMoney(s.current)}</div>}
+                    <div className="font-semibold tabular text-sm">{fmtMoney(s.suggested)}</div>
+                    {same && <div className="text-[10px] text-zinc-400">igual</div>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Sheet>
     );
   }
 
@@ -2952,6 +3229,307 @@
           <label className="block"><span className="text-sm text-zinc-500">Nota (opcional)</span><Textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}/></label>
         </div>
       </Sheet>
+    );
+  }
+
+  /* =========================================================
+     PENDIENTES — cuentas por cobrar / por pagar
+     ========================================================= */
+  function PendingForm({ open, onClose, existing = null, prefill = null }) {
+    const { state, actions } = useStore();
+    const accs = enabledAccounts(state);
+    const [direction, setDirection] = useState('in');
+    const [title, setTitle] = useState('');
+    const [amount, setAmount] = useState('');
+    const [account, setAccount] = useState(accs[0]?.id || 'personal');
+    const [category, setCategory] = useState('');
+    const [expectedDate, setExpectedDate] = useState(todayISO());
+    const [recurring, setRecurring] = useState(false);
+    const [recurringPeriod, setRecurringPeriod] = useState('monthly');
+    const [fixed, setFixed] = useState(false);
+    const [note, setNote] = useState('');
+    const isEdit = !!existing;
+    const cats = useMemo(() => categoriesFor(state, direction === 'in' ? 'income' : 'expense'), [state, direction]);
+
+    useEffect(() => {
+      if (!open) return;
+      if (existing) {
+        setDirection(existing.direction || 'in');
+        setTitle(existing.title || '');
+        setAmount(String(existing.amount || ''));
+        setAccount(existing.account || 'personal');
+        setCategory(existing.category || '');
+        setExpectedDate(existing.expectedDate || todayISO());
+        setRecurring(!!existing.recurring);
+        setRecurringPeriod(existing.recurringPeriod || 'monthly');
+        setFixed(!!existing.fixed);
+        setNote(existing.note || '');
+      } else {
+        const dir = prefill?.direction || 'in';
+        setDirection(dir);
+        setTitle(prefill?.title || '');
+        setAmount('');
+        setAccount(prefill?.account || (dir==='in' ? 'personal' : 'personal'));
+        setCategory(categoriesFor(state, dir==='in'?'income':'expense')[0] || '');
+        setExpectedDate(prefill?.expectedDate || todayISO());
+        setRecurring(!!prefill?.recurring);
+        setRecurringPeriod(prefill?.recurringPeriod || 'monthly');
+        setFixed(!!prefill?.fixed);
+        setNote('');
+      }
+    }, [open, existing, prefill]);
+
+    useEffect(() => {
+      if (!isEdit) setCategory(categoriesFor(state, direction === 'in' ? 'income' : 'expense')[0] || '');
+    }, [direction, isEdit]);
+
+    const save = () => {
+      const a = parseFloat(amount); if (!a || a <= 0) { Toast.error('Monto inválido'); return; }
+      if (!title.trim()) { Toast.error('Falta título'); return; }
+      try {
+        const payload = { direction, title: title.trim(), amount: a, account, category, expectedDate, fixed, recurring, recurringPeriod, note: note.trim() };
+        if (isEdit) { actions.updatePending(existing.id, payload); Toast.success('Pendiente actualizado'); }
+        else { actions.addPending(payload); Toast.push({ kind:'info', title: direction==='in'?'Por cobrar':'Por pagar', message: `${title.trim()} · ${fmtMoney(a)} · ${fmtDate(expectedDate)}` }); }
+        SoundFX.success();
+      } catch (e) { console.error(e); Toast.error('No se pudo guardar'); }
+      finally { onClose(); }
+    };
+    const remove = () => {
+      if (!isEdit) return;
+      const snap = { ...existing };
+      try {
+        actions.removePending(existing.id); SoundFX.uncheck();
+        Toast.push({ kind:'info', message:'Pendiente eliminado', duration: 5500,
+          action: { label:'Deshacer', onClick: () => { actions.addPending(snap); Toast.success('Restaurado'); } } });
+      } catch (e) {}
+      finally { onClose(); }
+    };
+    const confirm = () => {
+      if (!isEdit) return;
+      const a = parseFloat(amount) || +existing.amount;
+      try {
+        actions.confirmPending(existing.id, { date: todayISO(), amount: a, account });
+        SoundFX.coin(); fireConfetti({ count: 50, originY: window.innerHeight*0.5 });
+        const accName = state.accounts[account]?.name || account;
+        Toast.push({
+          kind:'success',
+          title: direction === 'in' ? '¡Cobrado!' : 'Pago confirmado',
+          message: `${fmtMoney(a)} · ${accName}`,
+        });
+      } catch (e) { Toast.error('No se pudo confirmar'); }
+      finally { onClose(); }
+    };
+
+    return (
+      <Sheet open={open} onClose={onClose} title={isEdit ? (existing.status==='pending'?'Editar pendiente':'Pendiente cerrado') : 'Nuevo pendiente'}
+             footer={
+               <div className="flex justify-end gap-2 flex-wrap">
+                 {isEdit && existing.status === 'pending' && (
+                   <Button variant="success" onClick={confirm}>
+                     <Icon name={direction==='in'?'check':'check-circle'} size={16}/>
+                     {direction==='in'?'Cobrar ahora':'Pagar ahora'}
+                   </Button>
+                 )}
+                 {isEdit && <Button variant="ghost" onClick={remove} className="text-accent-red"><Icon name="trash-2" size={16}/></Button>}
+                 <div className="flex-1"/>
+                 <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                 <Button onClick={save}>{isEdit?'Guardar':'Crear'}</Button>
+               </div>
+             }>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={()=>{SoundFX.tap(); setDirection('in');}} className={`press h-12 rounded-2xl font-medium transition inline-flex items-center justify-center gap-2 ${direction==='in' ? 'bg-accent-green text-white' : 'bg-paper-softer dark:bg-ink-softer'}`}><Icon name="inbox" size={16}/> Por cobrar</button>
+            <button onClick={()=>{SoundFX.tap(); setDirection('out');}} className={`press h-12 rounded-2xl font-medium transition inline-flex items-center justify-center gap-2 ${direction==='out' ? 'bg-accent-red text-white' : 'bg-paper-softer dark:bg-ink-softer'}`}><Icon name="calendar-clock" size={16}/> Por pagar</button>
+          </div>
+          <label className="block">
+            <span className="text-sm text-zinc-500">Título</span>
+            <Input className="mt-1" placeholder={direction==='in' ? 'Ej. Cliente X · anillo perla' : 'Ej. Netflix mensual'} value={title} onChange={e=>setTitle(e.target.value)}/>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-zinc-500">Monto</span><Input type="number" inputMode="decimal" placeholder="0" value={amount} onChange={e=>setAmount(e.target.value)} icon="banknote" className="mt-1"/></label>
+            <label className="block"><span className="text-sm text-zinc-500">Fecha esperada</span><Input type="date" value={expectedDate} onChange={e=>setExpectedDate(e.target.value)} className="mt-1"/></label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-sm text-zinc-500">Cuenta</span>
+              <Select value={account} onChange={e=>setAccount(e.target.value)} className="mt-1">
+                {accs.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </Select>
+            </label>
+            <label className="block">
+              <span className="text-sm text-zinc-500">Categoría</span>
+              <Select value={category} onChange={e=>setCategory(e.target.value)} className="mt-1">{cats.map(c => <option key={c}>{c}</option>)}</Select>
+            </label>
+          </div>
+          <label className="block"><span className="text-sm text-zinc-500">Nota (opcional)</span><Textarea rows={2} value={note} onChange={e=>setNote(e.target.value)}/></label>
+
+          {/* Recurrente / Fijo */}
+          <div className="rounded-2xl bg-paper-softer dark:bg-ink-softer p-4 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={recurring} onChange={e=>setRecurring(e.target.checked)} className="mt-0.5 h-4 w-4 accent-ink dark:accent-white"/>
+              <div className="flex-1">
+                <div className="font-medium text-sm">Repetir tras confirmar</div>
+                <div className="text-xs text-zinc-500 mt-0.5">{direction==='in'?'Útil para clientes recurrentes.':'Útil para suscripciones, cuotas, gastos fijos.'}</div>
+              </div>
+            </label>
+            {recurring && (
+              <div className="grid grid-cols-3 gap-2">
+                {[['weekly','Semanal'],['monthly','Mensual'],['yearly','Anual']].map(([k,l])=>(
+                  <button key={k} onClick={()=>{SoundFX.tap(); setRecurringPeriod(k);}} className={`press h-10 rounded-xl text-sm font-medium ${recurringPeriod===k?'bg-ink text-white dark:bg-white dark:text-ink':'bg-white dark:bg-ink-soft'}`}>{l}</button>
+                ))}
+              </div>
+            )}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={fixed} onChange={e=>setFixed(e.target.checked)} className="h-4 w-4 accent-ink dark:accent-white"/>
+              <div className="flex-1 text-sm font-medium inline-flex items-center gap-1.5">
+                <Icon name="lock" size={12} className="text-zinc-500"/> Marcar como gasto fijo
+              </div>
+            </label>
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
+
+  function PendientesView({ openPendingForm }) {
+    const { state, actions } = useStore();
+    const today = todayISO();
+    const [filter, setFilter] = useState('all'); // all | in | out | fixed | overdue | week
+    const items = (state.pending || []).filter(p => p.status === 'pending');
+    let filtered = items.slice();
+    if (filter === 'in') filtered = filtered.filter(p => p.direction === 'in');
+    else if (filter === 'out') filtered = filtered.filter(p => p.direction === 'out');
+    else if (filter === 'fixed') filtered = filtered.filter(p => p.fixed || p.recurring);
+    else if (filter === 'overdue') filtered = filtered.filter(p => p.expectedDate < today);
+    else if (filter === 'week') filtered = filtered.filter(p => p.expectedDate >= today && p.expectedDate <= addDays(today, 7));
+    filtered.sort((a, b) => (a.expectedDate || '').localeCompare(b.expectedDate || ''));
+
+    const totalIn = items.filter(p => p.direction === 'in').reduce((a, p) => a + +p.amount, 0);
+    const totalOut = items.filter(p => p.direction === 'out').reduce((a, p) => a + +p.amount, 0);
+    const overdue = items.filter(p => p.expectedDate < today).length;
+
+    return (
+      <div className="space-y-4">
+        {/* Top summary */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4 anim-scale-in" style={{background: 'rgba(48,209,88,.08)', boxShadow:'inset 0 0 0 1px rgba(48,209,88,.2)'}}>
+            <div className="flex items-center gap-2 text-[12px] text-zinc-500 font-semibold uppercase tracking-wider"><Icon name="inbox" size={12} className="text-accent-success"/> Por cobrar</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight ticker" style={{color:'#30D158'}}>{fmtMoney(totalIn)}</div>
+            <div className="text-[11px] text-zinc-500 mt-1">{items.filter(p=>p.direction==='in').length} pendientes</div>
+          </Card>
+          <Card className="p-4 anim-scale-in" style={{background: 'rgba(255,69,58,.08)', boxShadow:'inset 0 0 0 1px rgba(255,69,58,.2)'}}>
+            <div className="flex items-center gap-2 text-[12px] text-zinc-500 font-semibold uppercase tracking-wider"><Icon name="calendar-clock" size={12} className="text-accent-red"/> Por pagar</div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight ticker" style={{color:'#FF453A'}}>{fmtMoney(totalOut)}</div>
+            <div className="text-[11px] text-zinc-500 mt-1">{items.filter(p=>p.direction==='out').length} pendientes</div>
+          </Card>
+        </div>
+
+        {/* Net + alertas */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[12px] text-zinc-500 font-semibold uppercase tracking-wider">Neto pendiente</div>
+              <div className="mt-1 text-xl font-semibold tracking-tight ticker" style={{color: (totalIn-totalOut)>=0?'#30D158':'#FF453A'}}>
+                {(totalIn-totalOut)>=0?'+':''}{fmtMoney(totalIn - totalOut)}
+              </div>
+            </div>
+            {overdue > 0 && (
+              <div className="text-right">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-red/15 text-accent-red text-[12px] font-semibold">
+                  <Icon name="alert-circle" size={11}/> {overdue} {overdue===1?'atrasado':'atrasados'}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Filtros */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x">
+          {[
+            ['all','Todos', items.length],
+            ['week','Esta semana', items.filter(p=>p.expectedDate>=today && p.expectedDate<=addDays(today,7)).length],
+            ['overdue','Atrasados', overdue],
+            ['in','Por cobrar', items.filter(p=>p.direction==='in').length],
+            ['out','Por pagar', items.filter(p=>p.direction==='out').length],
+            ['fixed','Fijos', items.filter(p=>p.fixed||p.recurring).length],
+          ].map(([k,l,n])=>(
+            <button key={k} onClick={()=>{SoundFX.tap(); setFilter(k);}}
+                    className={`press shrink-0 snap-start px-3 h-8 rounded-full text-xs font-medium inline-flex items-center gap-1.5 ${filter===k?'bg-ink text-white dark:bg-white dark:text-ink':'bg-paper-softer dark:bg-ink-softer'}`}>
+              {l} <span className={`tabular ${filter===k?'opacity-70':'text-zinc-400'}`}>{n}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Lista */}
+        {filtered.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Icon name="check-check" size={28} className="text-zinc-400"/>
+            <p className="mt-3 text-zinc-500 text-sm">{filter==='all' ? 'No hay pendientes. Agrega ingresos esperados o gastos fijos.' : 'Nada en este filtro.'}</p>
+            <Button className="mt-4" onClick={openPendingForm}><Icon name="plus" size={16}/> Pendiente</Button>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map(p => <PendingRow key={p.id} item={p} openEdit={()=>openPendingForm(p)}/>)}
+          </div>
+        )}
+
+        {/* Tip footer */}
+        <p className="text-[11px] text-zinc-400 leading-relaxed px-2">
+          Los pendientes <strong>no afectan tu saldo</strong> hasta que los confirmes. Sí se usan para presupuestar y proyectar tu plata disponible.
+        </p>
+      </div>
+    );
+  }
+
+  function PendingRow({ item, openEdit }) {
+    const { state, actions } = useStore();
+    const today = todayISO();
+    const overdue = item.expectedDate < today;
+    const acc = state.accounts[item.account];
+    const isIn = item.direction === 'in';
+    const color = isIn ? '#30D158' : '#FF453A';
+    const days = daysBetween(today, item.expectedDate);
+
+    const quickConfirm = (e) => {
+      e.stopPropagation();
+      try {
+        actions.confirmPending(item.id, { date: todayISO() });
+        SoundFX.coin(); vibrate(20); fireConfetti({ count: 60, originY: window.innerHeight*0.5 });
+        Toast.push({
+          kind:'success',
+          title: isIn ? '¡Cobrado!' : 'Pago confirmado',
+          message: `${fmtMoney(item.amount)} · ${item.title}`,
+        });
+      } catch (err) { Toast.error('No se pudo confirmar'); }
+    };
+
+    return (
+      <button onClick={openEdit} className="w-full text-left flex items-center gap-3 p-3 sm:p-4 rounded-2xl bg-white dark:bg-ink-soft hairline transition hover:shadow-soft press">
+        <div className="h-10 w-10 grid place-items-center rounded-2xl shrink-0" style={{background: color+'20', color}}>
+          <Icon name={isIn?'inbox':'calendar-clock'} size={18}/>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-sm flex items-center gap-1.5">
+            <span className="truncate">{item.title || '(sin título)'}</span>
+            {item.recurring && <Icon name="repeat" size={11} className="text-zinc-400 shrink-0"/>}
+            {item.fixed && <Icon name="lock" size={11} className="text-zinc-400 shrink-0"/>}
+          </div>
+          <div className="text-[11px] text-zinc-500 truncate flex items-center gap-1.5">
+            <span className={`${overdue?'text-accent-red font-semibold':''}`}>
+              {overdue ? `Atrasado ${Math.abs(days)}d` : days===0 ? 'Hoy' : days===1 ? 'Mañana' : `En ${days}d`}
+            </span>
+            <span className="text-zinc-400">·</span>
+            <span>{fmtDate(item.expectedDate, {day:'numeric', month:'short'})}</span>
+            {acc && <><span className="text-zinc-400">·</span><span>{acc.name}</span></>}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="font-semibold tabular text-sm" style={{color}}>{isIn?'+':'-'}{fmtMoney(item.amount)}</div>
+          <button onClick={quickConfirm} className="press mt-1 text-[11px] font-semibold text-accent-blue hover:underline inline-flex items-center gap-0.5">
+            <Icon name="check" size={11}/> {isIn?'Cobrar':'Pagar'}
+          </button>
+        </div>
+      </button>
     );
   }
 
@@ -3062,6 +3640,9 @@
     const [trOpen, setTrOpen] = useState(false);
     const [trPrefill, setTrPrefill] = useState(null);
     const [editingTr, setEditingTr] = useState(null);
+    const [pendOpen, setPendOpen] = useState(false);
+    const [editingPend, setEditingPend] = useState(null);
+    const [pendPrefill, setPendPrefill] = useState(null);
     const [filter, setFilter] = useState({ q: '', type: 'all', account: 'all' });
 
     const accs = enabledAccounts(state);
@@ -3074,12 +3655,19 @@
     const openEditTx = (tx) => { setEditingTx(tx); setFormOpen(true); };
     const openNewTransfer = (prefill = null) => { setEditingTr(null); setTrPrefill(prefill); setTrOpen(true); };
     const openEditTransfer = (tr) => { setEditingTr(tr); setTrOpen(true); };
+    const openPendingForm = (existingOrPrefill = null) => {
+      // Heurística: si tiene id, lo tomamos como existing; si es null o un objeto sin id, prefill.
+      if (existingOrPrefill && existingOrPrefill.id) { setEditingPend(existingOrPrefill); setPendPrefill(null); }
+      else { setEditingPend(null); setPendPrefill(existingOrPrefill); }
+      setPendOpen(true);
+    };
 
     // Atender intenciones del FAB
     useEffect(() => {
       const onQuick = (e) => {
         if (e.detail === 'tx') openNewTx();
-        if (e.detail === 'transfer') openNewTransfer();
+        else if (e.detail === 'transfer') openNewTransfer();
+        else if (e.detail === 'pending') { setTab('pendientes'); setTimeout(() => openPendingForm(null), 250); }
       };
       window.addEventListener('vida:quick', onQuick);
       return () => window.removeEventListener('vida:quick', onQuick);
@@ -3118,9 +3706,11 @@
       SoundFX.success();
     };
 
+    const pendCount = (state.pending || []).filter(p => p.status === 'pending').length;
     const TABS = [
       { value:'resumen',     label:'Resumen' },
       { value:'movimientos', label:'Movimientos' },
+      { value:'pendientes',  label:`Pendientes${pendCount?' · '+pendCount:''}` },
       { value:'presupuestos',label:'Presupuesto' },
       { value:'reportes',    label:'Reportes' },
       { value:'cuentas',     label:'Cuentas' },
@@ -3134,8 +3724,9 @@
             <p className="text-zinc-500 mt-1">Tu sistema completo de control de plata.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={()=>openNewTransfer()}><Icon name="arrow-left-right" size={16}/> <span className="hidden sm:inline">Transferir</span></Button>
-            <Button variant="secondary" onClick={exportExcel}><Icon name="download" size={16}/> <span className="hidden sm:inline">Excel</span></Button>
+            <Button variant="secondary" onClick={()=>openPendingForm(null)} title="Pendiente (por cobrar / por pagar)"><Icon name="calendar-clock" size={16}/> <span className="hidden sm:inline">Pendiente</span></Button>
+            <Button variant="secondary" onClick={()=>openNewTransfer()} title="Transferir entre cuentas"><Icon name="arrow-left-right" size={16}/> <span className="hidden sm:inline">Transferir</span></Button>
+            <Button variant="secondary" onClick={exportExcel} title="Exportar Excel"><Icon name="download" size={16}/> <span className="hidden sm:inline">Excel</span></Button>
             <Button onClick={openNewTx}><Icon name="plus" size={16}/> Movimiento</Button>
           </div>
         </div>
@@ -3146,6 +3737,7 @@
         <div key={tab} className="anim-tab">
           {tab === 'resumen' && <FinanceResumen openNewTx={openNewTx} openEditTx={openEditTx} openNewTransfer={openNewTransfer}/>}
           {tab === 'movimientos' && <FinanceMovimientos filter={filter} setFilter={setFilter} openNewTx={openNewTx} openEditTx={openEditTx} openEditTransfer={openEditTransfer}/>}
+          {tab === 'pendientes' && <PendientesView openPendingForm={openPendingForm}/>}
           {tab === 'presupuestos' && (
             <div className="space-y-4">
               <BudgetGrid/>
@@ -3177,6 +3769,7 @@
 
         <TxForm open={formOpen} onClose={()=>{ setFormOpen(false); setEditingTx(null); }} existing={editingTx}/>
         <TransferForm open={trOpen} onClose={()=>{ setTrOpen(false); setEditingTr(null); setTrPrefill(null); }} existing={editingTr} prefill={trPrefill}/>
+        <PendingForm open={pendOpen} onClose={()=>{ setPendOpen(false); setEditingPend(null); setPendPrefill(null); }} existing={editingPend} prefill={pendPrefill}/>
       </div>
     );
   }
@@ -3205,21 +3798,21 @@
     }, [state.transactions, state.transfers]);
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
         {/* Hero patrimonio */}
-        <Card className={`p-6 sm:p-8 anim-scale-in ${glow==='good'?'anim-glow-good':glow==='bad'?'anim-glow-bad':''}`}>
+        <Card className={`p-5 sm:p-8 anim-scale-in ${glow==='good'?'anim-glow-good':glow==='bad'?'anim-glow-bad':''}`}>
           <div className="text-sm text-zinc-500">Patrimonio neto</div>
           <div className="mt-1 text-4xl sm:text-5xl font-semibold tracking-tight grad-ink ticker">
             <CountUp value={total} format={v=>fmtMoney(v)}/>
           </div>
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={`mt-5 grid gap-2 sm:gap-3 ${accs.length<=2?'grid-cols-2':'grid-cols-2 sm:grid-cols-4'}`}>
             {accs.map(a => (
               <div key={a.id} className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
-                <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{background:a.color}}/>
-                  {a.name}
+                <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5 truncate">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{background:a.color}}/>
+                  <span className="truncate">{a.name}</span>
                 </div>
-                <div className="mt-1 text-base font-semibold ticker">{fmtMoney(a.balance||0)}</div>
+                <div className="mt-1 text-base font-semibold ticker truncate">{fmtMoney(a.balance||0)}</div>
               </div>
             ))}
           </div>
@@ -3240,8 +3833,8 @@
           <InsightsPanel openTransfer={openNewTransfer}/>
         </Section>
 
-        {/* Forecast + NetWorth */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Forecast + NetWorth — stack en mobile, dos col en desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           <NetWorthChart/>
           <ForecastCard/>
         </div>
@@ -3268,17 +3861,16 @@
     if (item._kind === 'tr') {
       const fromA = state.accounts[item.from], toA = state.accounts[item.to];
       return (
-        <button key={item.id} onClick={()=>onEditTr && onEditTr(item)} className={`w-full text-left flex items-center gap-3 sm:gap-4 ${compact?'p-3':'p-4'} transition hover:bg-paper-softer dark:hover:bg-ink-softer press ${index>0?'hairline-b':''}`}>
-          <div className="h-10 w-10 grid place-items-center rounded-2xl bg-accent-blue/10 text-accent-blue shrink-0"><Icon name="arrow-left-right" size={18}/></div>
+        <button key={item.id} onClick={()=>onEditTr && onEditTr(item)} className={`w-full text-left flex items-center gap-3 ${compact?'p-3':'p-3 sm:p-4'} transition hover:bg-paper-softer dark:hover:bg-ink-softer press ${index>0?'hairline-b':''}`}>
+          <div className="h-9 w-9 sm:h-10 sm:w-10 grid place-items-center rounded-xl sm:rounded-2xl bg-accent-blue/10 text-accent-blue shrink-0"><Icon name="arrow-left-right" size={16}/></div>
           <div className="min-w-0 flex-1">
-            <div className="font-medium flex items-center gap-1.5 text-sm">
+            <div className="font-medium flex items-center gap-1.5 text-[14px]">
               Transferencia
               {item.verified && <Icon name="check-circle" size={11} className="text-accent-success"/>}
             </div>
-            <div className="text-xs text-zinc-500 truncate">{fromA?.name||item.from} → {toA?.name||item.to} · {fmtDate(item.date,{day:'numeric',month:'short',year:'numeric'})}{item.note?' · '+item.note:''}</div>
+            <div className="text-[11px] text-zinc-500 truncate">{fromA?.name||item.from} → {toA?.name||item.to} · {fmtDate(item.date,{day:'numeric',month:'short'})}{item.note?' · '+item.note:''}</div>
           </div>
           <div className="font-semibold ticker text-zinc-500 text-sm">{fmtMoney(item.amount)}</div>
-          <Icon name="chevron-right" size={14} className="text-zinc-400 shrink-0"/>
         </button>
       );
     }
@@ -3290,23 +3882,23 @@
       Toast.push({ kind: t.verified ? 'info' : 'success', message: t.verified ? 'Verificación quitada' : 'Marcada como verificada', duration: 1800 });
     };
     return (
-      <button key={t.id} onClick={()=>onEditTx && onEditTx(t)} className={`w-full text-left flex items-center gap-3 sm:gap-4 ${compact?'p-3':'p-4'} transition hover:bg-paper-softer dark:hover:bg-ink-softer press ${index>0?'hairline-b':''}`}>
-        <div className={`h-10 w-10 grid place-items-center rounded-2xl shrink-0 ${t.type==='income'?'bg-accent-green/10 text-accent-green':'bg-accent-red/10 text-accent-red'}`}>
-          <Icon name={t.type==='income'?'arrow-up':'arrow-down'} size={18}/>
+      <button key={t.id} onClick={()=>onEditTx && onEditTx(t)} className={`w-full text-left flex items-center gap-3 ${compact?'p-3':'p-3 sm:p-4'} transition hover:bg-paper-softer dark:hover:bg-ink-softer press ${index>0?'hairline-b':''}`}>
+        <div className={`h-9 w-9 sm:h-10 sm:w-10 grid place-items-center rounded-xl sm:rounded-2xl shrink-0 ${t.type==='income'?'bg-accent-green/10 text-accent-green':'bg-accent-red/10 text-accent-red'}`}>
+          <Icon name={t.type==='income'?'arrow-up':'arrow-down'} size={16}/>
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-medium flex items-center gap-1.5 text-sm">
+          <div className="font-medium flex items-center gap-1.5 text-[14px]">
             <span className="truncate">{t.category}</span>
-            {t.recurring && <Icon name="repeat" size={11} className="text-zinc-400 shrink-0"/>}
-            {t.parentId && <span className="text-[10px] text-zinc-400 px-1.5 py-0.5 rounded bg-paper-softer dark:bg-ink-softer">auto</span>}
+            {t.recurring && <Icon name="repeat" size={10} className="text-zinc-400 shrink-0"/>}
+            {t.parentId && <span className="text-[9px] text-zinc-400 px-1.5 py-0.5 rounded bg-paper-softer dark:bg-ink-softer">auto</span>}
             {t.verified && <Icon name="check-circle" size={11} className="text-accent-success shrink-0"/>}
           </div>
-          <div className="text-xs text-zinc-500 truncate">{state.accounts[t.account]?.name||t.account} · {fmtDate(t.date,{day:'numeric',month:'short',year:'numeric'})}{t.note?' · '+t.note:''}</div>
+          <div className="text-[11px] text-zinc-500 truncate">{state.accounts[t.account]?.name||t.account} · {fmtDate(t.date,{day:'numeric',month:'short'})}{t.note?' · '+t.note:''}</div>
         </div>
-        <div className={`font-semibold ticker text-sm ${t.type==='income'?'text-accent-green':'text-accent-red'}`}>{t.type==='income'?'+':'-'}{fmtMoney(t.amount)}</div>
+        <div className={`font-semibold ticker text-sm shrink-0 ${t.type==='income'?'text-accent-green':'text-accent-red'}`}>{t.type==='income'?'+':'-'}{fmtMoney(t.amount)}</div>
         <button onClick={verifiedToggle} title={t.verified?'Quitar verificación':'Marcar como verificada'}
                 className={`press h-7 w-7 grid place-items-center rounded-lg shrink-0 ${t.verified?'text-accent-success':'text-zinc-400 hover:text-zinc-600'}`}>
-          <Icon name={t.verified?'badge-check':'circle'} size={14}/>
+          <Icon name={t.verified?'badge-check':'circle'} size={13}/>
         </button>
       </button>
     );
@@ -4260,7 +4852,7 @@
           </div>
         </header>
 
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-28 md:pb-10">
+        <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10 pb-28 md:pb-10">
           <div key={route} className="view-enter">{view}</div>
         </main>
 
@@ -4303,7 +4895,7 @@
       return () => document.removeEventListener('click', close);
     }, [open]);
     const trigger = (kind) => {
-      const dest = ({ tx:'finances', todo:'today', transfer:'finances', energy:'home', workout:'health', sleep:'health' })[kind] || 'home';
+      const dest = ({ tx:'finances', todo:'today', transfer:'finances', pending:'finances', energy:'home', workout:'health', sleep:'health' })[kind] || 'home';
       go(dest);
       // dispara la intención para que la vista destino abra el form correspondiente
       setTimeout(() => window.dispatchEvent(new CustomEvent('vida:quick', { detail: kind })), 220);
@@ -4311,9 +4903,10 @@
     };
     const actions = [
       { kind:'tx',       icon:'wallet',     label:'Movimiento', color:'#0A84FF' },
+      { kind:'pending',  icon:'calendar-clock', label:'Pendiente', color:'#FF9F0A' },
       { kind:'transfer', icon:'arrow-left-right', label:'Transferir',  color:'#5E5CE6' },
       { kind:'todo',     icon:'list-checks',label:'Tarea',     color:'#30D158' },
-      { kind:'energy',   icon:'zap',        label:'Energía',   color:'#FF9F0A' },
+      { kind:'energy',   icon:'zap',        label:'Energía',   color:'#FF375F' },
     ];
     return (
       <div className="md:hidden fixed right-4 z-40 pointer-events-none" data-fab-root
