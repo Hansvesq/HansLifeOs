@@ -127,6 +127,16 @@
     /* float +1 */
     .floater { position: absolute; pointer-events: none; animation: float-up .8s ease-out forwards; font-weight: 600; }
 
+    /* Mobile thumb-friendly: tap targets mínimos 44px en clases reservadas */
+    @media (max-width: 640px) {
+      .press, .press-spring, .checkbox, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+      .icon-btn-mobile { min-height: 44px; min-width: 44px; }
+      input[type="checkbox"] { width: 18px; height: 18px; }
+    }
+    /* Better touch behaviors */
+    button { touch-action: manipulation; }
+    .no-overscroll { overscroll-behavior: contain; }
+
     /* toast slide-up */
     @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
     .anim-toast { animation: toast-in .3s cubic-bezier(.34,1.56,.64,1) both; }
@@ -302,9 +312,10 @@
       background: rgba(10,10,10,.78);
       border-top-color: rgba(255,255,255,.08);
     }
-    .tabbar-grid { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; padding: 6px 4px 4px; }
+    .tabbar-grid { display: grid; grid-template-columns: repeat(5, 1fr); position: relative; padding: 6px 4px 4px; }
     .tabbar-pill {
-      position: absolute; top: 4px; bottom: 4px; width: calc(100%/7);
+      position: absolute; top: 4px; bottom: 4px; width: calc((100% - 8px)/5);
+      left: 4px;
       background: rgba(0,0,0,.06);
       border-radius: 14px;
       transition: transform .42s var(--ease-spring);
@@ -313,8 +324,9 @@
     .dark .tabbar-pill { background: rgba(255,255,255,.08); }
     .tabbar-btn {
       position: relative;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      padding: 8px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 9px 0 8px;
+      min-height: 52px;
       color: var(--tw-text-tertiary, rgb(161,161,170));
       transition: color .2s var(--ease-out);
       -webkit-tap-highlight-color: transparent;
@@ -322,8 +334,7 @@
     }
     .tabbar-btn[data-active="true"] { color: #0a0a0a; }
     .dark .tabbar-btn[data-active="true"] { color: #ffffff; }
-    .tabbar-btn span { font-size: 9.5px; font-weight: 600; letter-spacing: -.005em; }
-    @media (max-width: 360px) { .tabbar-btn span { display: none; } }
+    .tabbar-btn span { font-size: 10px; font-weight: 600; letter-spacing: -.005em; }
 
     /* Top nav desktop con indicador deslizante */
     .topnav { position: relative; }
@@ -421,7 +432,8 @@
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3);
   const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const fmtMoney = (n) => '₡' + Math.round(n).toLocaleString('es-CR');
+  const fmtMoney = (n) => '₡' + Math.round(n||0).toLocaleString('es-CR');
+  const fmtMoneyMasked = '••••';
   const fmtDate = (iso, opts = { day:'numeric', month:'short' }) => {
     if (!iso) return ''; const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''));
     return d.toLocaleDateString('es-CR', opts);
@@ -666,7 +678,7 @@
     budgets: {},        // { 'Comida': 80000, 'Transporte': 30000, ... } — por categoría, mensual
     customCategories: { income: [], expense: [] }, // strings extra que el user agregó
     netWorthHistory: [],// [{ date:'YYYY-MM-DD', total, byAccount: {personal:..., nakit:...} }]
-    settings: { theme: 'system', sound: true, density: 'comfortable', _version: 6 },
+    settings: { theme: 'system', sound: true, density: 'comfortable', privacy: false, _version: 6 },
     stats: { confettiSeen: {}, ritualDismissed: {} },
   };
 
@@ -1525,19 +1537,33 @@
       <Card className="p-4 sm:p-5 anim-scale-in overflow-hidden relative"
             style={{backgroundImage:'radial-gradient(120% 80% at 0% 0%, rgba(94,92,230,.14), transparent 60%), radial-gradient(120% 80% at 100% 100%, rgba(10,132,255,.10), transparent 60%)'}}>
         <div className="flex items-center justify-between gap-3 mb-3 relative">
-          <div>
-            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-2">
-              <Icon name="zap" size={14}/> ¿Cómo está tu energía?
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 grid place-items-center rounded-2xl text-white" style={{background:'linear-gradient(135deg,#5E5CE6,#0A84FF)'}}>
+              <Icon name="zap" size={16}/>
             </div>
-            <div className="text-[12px] text-zinc-500 mt-0.5">{!cur ? 'No la marcaste hoy.' : 'Hace más de 5h que la actualizaste.'}</div>
+            <div>
+              <div className="font-semibold text-[15px]">¿Cómo está tu energía?</div>
+              <div className="text-[12px] text-zinc-500 mt-0.5">{!cur ? 'Marcala para que la app te recomiende qué hacer' : 'Hace más de 5h — actualizá'}</div>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-1.5 relative">
+        {/* Grid grande, accesible al pulgar */}
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 relative">
           {ENERGY_LEVELS.map(lv => (
             <button key={lv.id} onClick={()=>set(lv.id)}
-                    className="press-spring py-3 rounded-xl text-[12px] font-semibold text-white transition"
-                    style={{ background: `linear-gradient(135deg, ${lv.color}, ${lv.color}cc)`, boxShadow: `0 6px 18px ${lv.color}40` }}>
-              {lv.label}
+                    className="press-spring rounded-2xl text-white transition flex flex-col items-center justify-center gap-1"
+                    style={{
+                      minHeight:'68px',
+                      background: `linear-gradient(135deg, ${lv.color}, ${lv.color}cc)`,
+                      boxShadow: `0 8px 22px ${lv.color}40`
+                    }}>
+              <Icon name={
+                lv.id==='peak'?'sparkles':
+                lv.id==='high'?'zap':
+                lv.id==='medium'?'circle':
+                lv.id==='low'?'battery-low':'battery'
+              } size={16}/>
+              <span className="text-[12px] font-bold tracking-tight">{lv.label}</span>
             </button>
           ))}
         </div>
@@ -1818,32 +1844,75 @@
   }
 
   function Sheet({ open, onClose, title, children, footer }) {
+    const sheetRef = useRef(null);
+    const dragRef = useRef({ startY: 0, currentY: 0, dragging: false });
+    const [dragY, setDragY] = useState(0);
+
     // Bloquear scroll del body — cleanup robusto incluso si el Sheet falla en render
     useEffect(() => {
       if (!open) return;
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       const restore = () => { try { document.body.style.overflow = prev || ''; } catch (_) {} };
-      // Failsafe: si el sheet queda colgado, al cambiar route restauramos
       window.addEventListener('beforeunload', restore);
       return () => { restore(); window.removeEventListener('beforeunload', restore); };
     }, [open]);
 
+    // Reset dragY al abrir
+    useEffect(() => { if (open) setDragY(0); }, [open]);
+
+    // Drag-to-dismiss handlers (mobile sólo) — sólo desde el handle/header
+    const onTouchStart = (e) => {
+      const t = e.touches[0];
+      dragRef.current = { startY: t.clientY, currentY: t.clientY, dragging: true };
+    };
+    const onTouchMove = (e) => {
+      if (!dragRef.current.dragging) return;
+      const t = e.touches[0];
+      dragRef.current.currentY = t.clientY;
+      const dy = Math.max(0, t.clientY - dragRef.current.startY);
+      setDragY(dy);
+    };
+    const onTouchEnd = () => {
+      if (!dragRef.current.dragging) return;
+      const dy = dragRef.current.currentY - dragRef.current.startY;
+      dragRef.current.dragging = false;
+      // Threshold: 100px para cerrar
+      if (dy > 100) {
+        SoundFX.tap();
+        // animación: desliza hasta abajo y luego onClose
+        setDragY(window.innerHeight);
+        setTimeout(() => { setDragY(0); onClose(); }, 220);
+      } else {
+        setDragY(0); // snap back
+      }
+    };
+
     if (!open) return null;
+
+    const transform = dragY > 0 ? `translateY(${dragY}px)` : undefined;
+    const transition = dragRef.current.dragging ? 'none' : 'transform .25s cubic-bezier(.32,.72,0,1)';
 
     return (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm anim-in" onClick={onClose}/>
-        <div className="relative w-full sm:max-w-lg bg-white dark:bg-ink-soft rounded-t-4xl sm:rounded-3xl shadow-lift anim-sheet sm:anim-scale-in flex flex-col"
-             style={{paddingBottom:'env(safe-area-inset-bottom)', maxHeight:'92vh'}}>
-          <div className="sm:hidden sheet-handle"/>
-          <div className="flex items-center justify-between p-5 pt-3 sm:pt-5 hairline-b shrink-0">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm anim-in"
+             style={{opacity: dragY > 0 ? Math.max(0, 1 - dragY/300) : undefined}}
+             onClick={onClose}/>
+        <div ref={sheetRef}
+             className="relative w-full sm:max-w-lg bg-white dark:bg-ink-soft rounded-t-4xl sm:rounded-3xl shadow-lift anim-sheet sm:anim-scale-in flex flex-col"
+             style={{paddingBottom:'env(safe-area-inset-bottom)', maxHeight:'92vh', transform, transition}}>
+          {/* Drag zone (mobile): handle + header */}
+          <div className="sm:hidden" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+            <div className="sheet-handle"/>
+          </div>
+          <div className="flex items-center justify-between p-5 pt-3 sm:pt-5 hairline-b shrink-0"
+               onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
             <h3 className="text-lg font-semibold">{title}</h3>
-            <button onClick={()=>{SoundFX.tap(); onClose();}} className="press h-8 w-8 grid place-items-center rounded-full hover:bg-paper-softer dark:hover:bg-ink-softer"><Icon name="x" size={18}/></button>
+            <button onClick={()=>{SoundFX.tap(); onClose();}} className="press h-9 w-9 grid place-items-center rounded-full hover:bg-paper-softer dark:hover:bg-ink-softer"><Icon name="x" size={18}/></button>
           </div>
           <div className="p-5 overflow-y-auto flex-1" style={{WebkitOverflowScrolling:'touch', minHeight:0}}>{children}</div>
           {footer && (
-            <div className="p-5 shrink-0 bg-white dark:bg-ink-soft hairline-b">
+            <div className="p-4 sm:p-5 shrink-0 bg-white dark:bg-ink-soft hairline-b">
               {footer}
             </div>
           )}
@@ -2942,31 +3011,51 @@
         <p className="mt-2 text-zinc-500 text-sm">Aún no hay suficientes datos para análisis. Registra movimientos por unas semanas.</p>
       </Card>
     );
+    // Jerarquía: el primero (más relevante) ancho completo y grande; el resto en grid 2-col
+    const [hero, ...rest] = insights;
+    const heroT = TONE[hero.tone] || TONE.info;
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger">
-        {insights.map((i, idx) => {
-          const t = TONE[i.tone] || TONE.info;
-          return (
-            <Card key={idx} className="p-4 anim-scale-in" style={{boxShadow: `inset 0 0 0 1px ${t.ring}`, background: t.bg}}>
-              <div className="flex items-start gap-3">
-                <div className="h-9 w-9 grid place-items-center rounded-xl shrink-0" style={{background: t.fg+'20', color: t.fg}}>
-                  <Icon name={i.icon || 'info'} size={16}/>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] uppercase tracking-wider text-zinc-500 font-semibold">{i.title}</div>
-                  <div className="text-lg font-semibold mt-0.5 ticker truncate" style={{color: t.fg}}>{i.value}</div>
-                  <div className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1 leading-snug">{i.hint}</div>
-                  {i.action && i.action.kind === 'transfer' && (
-                    <button onClick={()=>openTransfer && openTransfer({ amount: i.action.toAhorros, to: 'ahorros' })}
-                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold press" style={{color: t.fg}}>
-                      {i.action.label} <Icon name="arrow-right" size={12}/>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+      <div className="space-y-3">
+        {/* Hero insight */}
+        <Card className="p-5 anim-scale-in" style={{boxShadow: `inset 0 0 0 1px ${heroT.ring}`, background: heroT.bg}}>
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 grid place-items-center rounded-2xl shrink-0" style={{background: heroT.fg+'20', color: heroT.fg}}>
+              <Icon name={hero.icon || 'info'} size={20}/>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] uppercase tracking-wider text-zinc-500 font-semibold">{hero.title}</div>
+              <div className="text-2xl sm:text-3xl font-semibold mt-1 ticker tracking-tight" style={{color: heroT.fg, lineHeight: 1.1}}>{hero.value}</div>
+              <div className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed">{hero.hint}</div>
+              {hero.action && hero.action.kind === 'transfer' && (
+                <button onClick={()=>openTransfer && openTransfer({ amount: hero.action.toAhorros, to: 'ahorros' })}
+                        className="press-spring mt-3 inline-flex items-center gap-1.5 px-3 h-8 rounded-full font-semibold text-[13px]"
+                        style={{color: '#fff', background: heroT.fg}}>
+                  {hero.action.label} <Icon name="arrow-right" size={14}/>
+                </button>
+              )}
+            </div>
+          </div>
+        </Card>
+        {/* Resto en grid 2-col compactos */}
+        {rest.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 stagger">
+            {rest.map((i, idx) => {
+              const t = TONE[i.tone] || TONE.info;
+              return (
+                <Card key={idx} className="p-3 anim-scale-in overflow-hidden" style={{boxShadow: `inset 0 0 0 1px ${t.ring}`, background: t.bg}}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-7 w-7 grid place-items-center rounded-lg shrink-0" style={{background: t.fg+'20', color: t.fg}}>
+                      <Icon name={i.icon || 'info'} size={13}/>
+                    </div>
+                    <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold truncate flex-1">{i.title}</div>
+                  </div>
+                  <div className="text-base font-semibold ticker truncate" style={{color: t.fg}}>{i.value}</div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-tight" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{i.hint}</div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
@@ -3737,17 +3826,28 @@
     ];
 
     return (
-      <div className="space-y-6 anim-in">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-semibold tracking-tight">Finanzas</h1>
-            <p className="text-zinc-500 mt-1">Tu sistema completo de control de plata.</p>
+      <div className="space-y-5 sm:space-y-6 anim-in">
+        {/* Header mobile-first: título compacto + toolbar de acciones */}
+        <div>
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Finanzas</h1>
+              <p className="text-zinc-500 text-[13px] sm:text-sm mt-0.5 hidden sm:block">Tu sistema completo de control de plata.</p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={()=>openPendingForm(null)} title="Pendiente (por cobrar / por pagar)"><Icon name="calendar-clock" size={16}/> <span className="hidden sm:inline">Pendiente</span></Button>
-            <Button variant="secondary" onClick={()=>openNewTransfer()} title="Transferir entre cuentas"><Icon name="arrow-left-right" size={16}/> <span className="hidden sm:inline">Transferir</span></Button>
-            <Button variant="secondary" onClick={exportExcel} title="Exportar Excel"><Icon name="download" size={16}/> <span className="hidden sm:inline">Excel</span></Button>
-            <Button onClick={openNewTx}><Icon name="plus" size={16}/> Movimiento</Button>
+          <div className="grid grid-cols-4 gap-2 sm:flex sm:gap-2">
+            <button onClick={openNewTx} className="press-spring h-12 sm:h-10 sm:px-4 rounded-2xl sm:rounded-xl bg-ink text-white dark:bg-white dark:text-ink font-semibold text-[12px] sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Icon name="plus" size={16}/><span>Mov.</span>
+            </button>
+            <button onClick={()=>openPendingForm(null)} className="press-spring h-12 sm:h-10 sm:px-4 rounded-2xl sm:rounded-xl bg-paper-softer dark:bg-ink-soft font-semibold text-[12px] sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Icon name="calendar-clock" size={16}/><span>Pend.</span>
+            </button>
+            <button onClick={()=>openNewTransfer()} className="press-spring h-12 sm:h-10 sm:px-4 rounded-2xl sm:rounded-xl bg-paper-softer dark:bg-ink-soft font-semibold text-[12px] sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Icon name="arrow-left-right" size={16}/><span>Transf.</span>
+            </button>
+            <button onClick={exportExcel} className="press-spring h-12 sm:h-10 sm:px-4 rounded-2xl sm:rounded-xl bg-paper-softer dark:bg-ink-soft font-semibold text-[12px] sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Icon name="download" size={16}/><span>Excel</span>
+            </button>
           </div>
         </div>
 
@@ -3795,12 +3895,15 @@
   }
 
   function FinanceResumen({ openNewTx, openEditTx, openNewTransfer }) {
-    const { state } = useStore();
+    const { state, actions } = useStore();
     const today = todayISO();
     const m = monthKey(today);
     const accs = enabledAccounts(state);
     const cur = monthSummary(state, m);
     const total = netWorth(state);
+    const priv = !!state.settings?.privacy;
+    const showAmt = (n) => priv ? fmtMoneyMasked : fmtMoney(n);
+    const togglePriv = () => { actions.setSettings({ privacy: !priv }); SoundFX.tap(); vibrate(8); };
     const [glow, setGlow] = useState(null); // 'good' | 'bad' | null
     useEffect(() => {
       const onChange = (e) => {
@@ -3819,12 +3922,20 @@
 
     return (
       <div className="space-y-4 sm:space-y-5">
-        {/* Hero patrimonio */}
+        {/* Hero patrimonio — tap para alternar privacy */}
         <Card className={`p-5 sm:p-8 anim-scale-in ${glow==='good'?'anim-glow-good':glow==='bad'?'anim-glow-bad':''}`}>
-          <div className="text-sm text-zinc-500">Patrimonio neto</div>
-          <div className="mt-1 text-4xl sm:text-5xl font-semibold tracking-tight grad-ink ticker">
-            <CountUp value={total} format={v=>fmtMoney(v)}/>
-          </div>
+          <button onClick={togglePriv} className="press w-full text-left flex items-end justify-between gap-2 group">
+            <div>
+              <div className="text-sm text-zinc-500 inline-flex items-center gap-1.5">
+                Patrimonio neto
+                <Icon name={priv?'eye-off':'eye'} size={11} className="text-zinc-400 opacity-0 group-hover:opacity-100 transition"/>
+              </div>
+              <div className="mt-1 text-4xl sm:text-5xl font-semibold tracking-tight grad-ink ticker">
+                {priv ? <span className="text-zinc-400">{fmtMoneyMasked}</span> : <CountUp value={total} format={v=>fmtMoney(v)}/>}
+              </div>
+            </div>
+            <div className="text-zinc-300 dark:text-zinc-600 mb-2"><Icon name={priv?'eye-off':'eye'} size={16}/></div>
+          </button>
           <div className={`mt-5 grid gap-2 sm:gap-3 ${accs.length<=2?'grid-cols-2':'grid-cols-2 sm:grid-cols-4'}`}>
             {accs.map(a => (
               <div key={a.id} className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
@@ -3832,18 +3943,18 @@
                   <span className="h-2 w-2 rounded-full shrink-0" style={{background:a.color}}/>
                   <span className="truncate">{a.name}</span>
                 </div>
-                <div className="mt-1 text-base font-semibold ticker truncate">{fmtMoney(a.balance||0)}</div>
+                <div className="mt-1 text-base font-semibold ticker truncate">{showAmt(a.balance||0)}</div>
               </div>
             ))}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="p-3 rounded-2xl bg-accent-green/8" style={{boxShadow:'inset 0 0 0 1px rgba(48,209,88,.18)'}}>
               <div className="flex items-center gap-1.5 text-xs text-zinc-500"><Icon name="arrow-up" size={12}/> Ingresos · {fmtDate(today,{month:'long'})}</div>
-              <div className="mt-1 text-xl font-semibold ticker" style={{color:'#30D158'}}>{fmtMoney(cur.inc)}</div>
+              <div className="mt-1 text-xl font-semibold ticker" style={{color:'#30D158'}}>{showAmt(cur.inc)}</div>
             </div>
             <div className="p-3 rounded-2xl bg-accent-red/8" style={{boxShadow:'inset 0 0 0 1px rgba(255,69,58,.18)'}}>
               <div className="flex items-center gap-1.5 text-xs text-zinc-500"><Icon name="arrow-down" size={12}/> Gastos · {fmtDate(today,{month:'long'})}</div>
-              <div className="mt-1 text-xl font-semibold ticker" style={{color:'#FF453A'}}>{fmtMoney(cur.exp)}</div>
+              <div className="mt-1 text-xl font-semibold ticker" style={{color:'#FF453A'}}>{showAmt(cur.exp)}</div>
             </div>
           </div>
         </Card>
@@ -4788,6 +4899,9 @@
     { id: 'health',   label: 'Salud',     icon: 'heart-pulse' },
     { id: 'settings', label: 'Ajustes',   icon: 'settings' },
   ];
+  // En mobile mostramos sólo 5 + 'Más' que abre un sheet con el resto
+  const NAV_MOBILE_PRIMARY = ['home', 'today', 'finances', 'calendar'];
+  const NAV_MOBILE_OVERFLOW = ['events', 'health', 'settings'];
 
   function App() {
     const { state, auth, syncStatus, actions } = useStore();
@@ -4861,14 +4975,15 @@
 
     return (
       <div className="min-h-full">
-        <header className="sticky top-0 z-30 glass hairline-b">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-ink dark:bg-white grid place-items-center text-white dark:text-ink shadow-soft"><Icon name="layers" size={16}/></div>
-            <div className="font-semibold tracking-tight">Vida</div>
-            <div className="ml-2 hidden sm:flex items-center gap-1.5 text-xs text-zinc-500"><SyncDot status={syncStatus}/> <SyncLabel status={syncStatus}/></div>
+        <header className="sticky top-0 z-30 glass hairline-b" style={{paddingTop:'env(safe-area-inset-top)'}}>
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 h-12 sm:h-14 flex items-center gap-2 sm:gap-3">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-ink dark:bg-white grid place-items-center text-white dark:text-ink shadow-soft"><Icon name="layers" size={14}/></div>
+            <div className="font-semibold tracking-tight text-[15px] sm:text-base">Vida</div>
+            <div className="ml-1 hidden sm:flex items-center gap-1.5 text-xs text-zinc-500"><SyncDot status={syncStatus}/> <SyncLabel status={syncStatus}/></div>
+            <span className="sm:hidden inline-flex items-center"><SyncDot status={syncStatus}/></span>
             <div className="flex-1"/>
             <TopNavDesktop nav={NAV} activeIdx={activeIdx} onGo={go}/>
-            {auth && auth.user.avatar && <img src={auth.user.avatar} alt="" className="h-8 w-8 rounded-full hairline ml-2"/>}
+            {auth && auth.user.avatar && <img src={auth.user.avatar} alt="" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full hairline ml-1 sm:ml-2"/>}
           </div>
         </header>
 
@@ -4876,7 +4991,7 @@
           <div key={route} className="view-enter">{view}</div>
         </main>
 
-        <BottomTabbar nav={NAV} activeIdx={activeIdx} onGo={go}/>
+        <BottomTabbar nav={NAV} activeId={activeNav} onGo={go}/>
         <FAB go={go}/>
         <ToastStack/>
       </div>
@@ -4965,19 +5080,47 @@
     );
   }
 
-  function BottomTabbar({ nav, activeIdx, onGo }) {
+  function BottomTabbar({ nav, activeId, onGo }) {
+    const [moreOpen, setMoreOpen] = useState(false);
+    const primary = NAV_MOBILE_PRIMARY.map(id => nav.find(n => n.id === id)).filter(Boolean);
+    const overflow = NAV_MOBILE_OVERFLOW.map(id => nav.find(n => n.id === id)).filter(Boolean);
+    const isOverflowActive = overflow.some(n => n.id === activeId);
+    // Calcular el índice visible en los 5 (4 + más)
+    const slots = [...primary.map(n=>n.id), '__more'];
+    let activeSlot = slots.indexOf(activeId);
+    if (activeSlot === -1) activeSlot = isOverflowActive ? 4 : 0;
     return (
-      <nav className="tabbar md:hidden">
-        <div className="tabbar-grid">
-          <span className="tabbar-pill" style={{ transform: `translateX(${activeIdx*100}%)` }}/>
-          {nav.map((n, i) => (
-            <button key={n.id} onClick={()=>onGo(n.id)} data-active={i===activeIdx} className="tabbar-btn press-spring">
-              <Icon name={n.icon} size={i===activeIdx ? 20 : 18}/>
-              <span>{n.label}</span>
+      <>
+        <nav className="tabbar md:hidden">
+          <div className="tabbar-grid">
+            <span className="tabbar-pill" style={{ transform: `translateX(${activeSlot*100}%)` }}/>
+            {primary.map((n, i) => (
+              <button key={n.id} onClick={()=>{SoundFX.tap(); vibrate(6); onGo(n.id);}} data-active={n.id===activeId} className="tabbar-btn press-spring">
+                <Icon name={n.icon} size={n.id===activeId ? 20 : 18}/>
+                <span>{n.label}</span>
+              </button>
+            ))}
+            <button onClick={()=>{SoundFX.tap(); vibrate(6); setMoreOpen(true);}} data-active={isOverflowActive} className="tabbar-btn press-spring">
+              <Icon name={isOverflowActive ? 'circle' : 'ellipsis'} size={isOverflowActive ? 20 : 18}/>
+              <span>Más</span>
             </button>
-          ))}
-        </div>
-      </nav>
+          </div>
+        </nav>
+        <Sheet open={moreOpen} onClose={()=>setMoreOpen(false)} title="Más">
+          <div className="grid grid-cols-3 gap-3">
+            {overflow.map(n => (
+              <button key={n.id} onClick={()=>{ SoundFX.tap(); vibrate(8); onGo(n.id); setMoreOpen(false); }}
+                      className={`press-spring rounded-2xl p-4 text-center transition ${n.id===activeId ? 'bg-ink text-white dark:bg-white dark:text-ink' : 'bg-paper-softer dark:bg-ink-softer'}`}>
+                <div className="h-10 w-10 mx-auto mb-2 grid place-items-center rounded-2xl"
+                     style={n.id===activeId ? {} : { background: 'rgba(0,0,0,.06)' }}>
+                  <Icon name={n.icon} size={18}/>
+                </div>
+                <div className="text-[13px] font-semibold">{n.label}</div>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      </>
     );
   }
 
