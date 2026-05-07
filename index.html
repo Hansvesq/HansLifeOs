@@ -49,15 +49,33 @@
   </script>
 
   <style>
+    /* ===== Variables iOS-standard ===== */
+    :root {
+      --ease-out: cubic-bezier(.16, 1, .3, 1);
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+      --ease-sheet: cubic-bezier(.32, .72, 0, 1);
+      --dur-quick: 140ms;
+      --dur-base: 220ms;
+      --dur-slow: 360ms;
+    }
+
     html, body, #root { height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
       font-feature-settings: 'cv11','ss01','ss03','cv02';
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       background: #fafafa;
+      color: #0a0a0a;
       overscroll-behavior-y: none;
+      -webkit-overflow-scrolling: touch;
+      transition: background-color .25s var(--ease-out), color .25s var(--ease-out);
     }
-    .dark body { background: #0a0a0a; }
+    .dark body { background: #0a0a0a; color: #fff; }
+    /* Smooth color/bg transitions globales — sin flash al cambiar de tema o al hover */
+    button, a, .row, .card, [role="button"] {
+      transition: color .18s var(--ease-out), background-color .18s var(--ease-out), border-color .18s var(--ease-out), box-shadow .25s var(--ease-out), opacity .18s var(--ease-out);
+    }
     @supports (font-variation-settings: normal) { body { font-family: 'Inter var', sans-serif; } }
     .hairline { box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
     .dark .hairline { box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
@@ -87,11 +105,14 @@
     @keyframes slide-right { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
     @keyframes float-up { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-40px); opacity: 0; } }
 
-    .anim-in       { animation: fadeIn .35s cubic-bezier(.16,1,.3,1) both; }
-    .anim-scale-in { animation: scaleIn .25s cubic-bezier(.16,1,.3,1) both; }
-    .anim-pop      { animation: pop .35s cubic-bezier(.34,1.56,.64,1); }
-    .anim-sheet    { animation: sheetUp .32s cubic-bezier(.32,.72,0,1) both; }
+    .anim-in       { animation: fadeIn .32s var(--ease-out) both; }
+    .anim-scale-in { animation: scaleIn .25s var(--ease-out) both; }
+    .anim-pop      { animation: pop .32s var(--ease-spring); }
+    .anim-sheet    { animation: sheetUp .42s var(--ease-sheet) both; }
     .anim-shimmer  { background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+    /* Backdrop fade-in más rápido que la sheet — para que el blur aparezca primero */
+    @keyframes backdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .anim-backdrop { animation: backdropFadeIn .2s var(--ease-out) both; }
 
     /* Stagger helpers */
     .stagger > * { animation: fadeIn .35s cubic-bezier(.16,1,.3,1) both; }
@@ -106,11 +127,22 @@
     .stagger > *:nth-child(9) { animation-delay: .18s; }
     .stagger > *:nth-child(10) { animation-delay: .20s; }
 
-    .press { transition: transform .15s cubic-bezier(.16,1,.3,1); }
-    .press:active { transform: scale(.96); }
+    /* Press feedback: dos clases, ambas iOS-style. .press = sutil; .press-spring = más bouncy */
+    .press, .press-spring {
+      transition: transform .15s var(--ease-out), opacity .12s var(--ease-out), background-color .18s var(--ease-out), color .18s var(--ease-out), box-shadow .25s var(--ease-out);
+      will-change: transform;
+    }
+    .press:active, .press-spring:active {
+      transform: scale(.965);
+      transition: transform .06s var(--ease-out);
+    }
+    .press-spring:active { transform: scale(.94); }
+    /* Active states también dim un poco (sensación táctil) */
+    button:active, [role="button"]:active { filter: brightness(.96); }
+    .dark button:active, .dark [role="button"]:active { filter: brightness(1.05); }
 
     /* number ticker */
-    .ticker { font-variant-numeric: tabular-nums; }
+    .ticker, .tabular { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'cv11' 1, 'ss01' 1; }
 
     /* day cell calendar */
     .day-cell { transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s; }
@@ -136,6 +168,35 @@
     /* Better touch behaviors */
     button { touch-action: manipulation; }
     .no-overscroll { overscroll-behavior: contain; }
+
+    /* Inputs polished — focus ring fluido, autoselect en mobile, sin jitter */
+    .vi-input {
+      transition: background-color .18s var(--ease-out), box-shadow .2s var(--ease-out), border-color .18s var(--ease-out);
+      font-size: 16px; /* evita zoom en iOS al enfocar */
+    }
+    .vi-input:focus { background: rgba(10,132,255,.04); }
+    .dark .vi-input:focus { background: rgba(10,132,255,.08); }
+    .vi-input::placeholder { transition: opacity .15s; }
+    .vi-input:focus::placeholder { opacity: .5; }
+
+    /* Selección de texto consistente */
+    ::selection { background: rgba(10,132,255,.25); }
+    .dark ::selection { background: rgba(10,132,255,.35); }
+
+    /* Card press: subtle elevation change cuando se toca */
+    .card-pressable { cursor: pointer; transition: transform .15s var(--ease-out), box-shadow .25s var(--ease-out); }
+    .card-pressable:active { transform: scale(.985); }
+    @media (hover: hover) {
+      .card-pressable:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+      .dark .card-pressable:hover { box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    }
+
+    /* SyncDot pulse cuando está syncing */
+    @keyframes syncPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,159,10,.55); }
+      50% { box-shadow: 0 0 0 6px rgba(255,159,10,0); }
+    }
+    .sync-pulse { animation: syncPulse 1.4s var(--ease-out) infinite; }
 
     /* toast slide-up */
     @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
@@ -680,7 +741,28 @@
     netWorthHistory: [],// [{ date:'YYYY-MM-DD', total, byAccount: {personal:..., nakit:...} }]
     settings: { theme: 'system', sound: true, density: 'comfortable', privacy: false, _version: 6 },
     stats: { confettiSeen: {}, ritualDismissed: {} },
+    coach: {
+      enabled: false,
+      hourlyRate: 2000,        // ₡/hora
+      hoursPerPay: 30,         // 30h * 2000 = ₡60.000 por quincena
+      paySchedule: 'quincenal',// quincenal | mensual
+      nextPayDate: null,
+      periodStart: null,
+      topePersisted: 0,        // se ratchea hacia arriba con cada ingreso
+      topePersistedUpdatedAt: null,
+      distribution: { ahorro: 35, salidas: 25, caprichos: 20, colchon: 20 },
+      alertThreshold: 15000,
+      autoRatchet: true,       // al recibir ingreso, recalcular tope
+    },
   };
+  const COACH_BUCKETS = [
+    { id:'fijo',     label:'Fijo',     icon:'lock',        color:'#8E8E93' },
+    { id:'salidas',  label:'Salida',   icon:'heart',       color:'#FF375F' },
+    { id:'caprichos',label:'Capricho', icon:'sparkles',    color:'#FF9F0A' },
+    { id:'ahorro',   label:'Ahorro',   icon:'piggy-bank',  color:'#30D158' },
+    { id:'colchon',  label:'Colchón',  icon:'shield',      color:'#0A84FF' },
+  ];
+  const COACH_BUCKET_BY_ID = Object.fromEntries(COACH_BUCKETS.map(b => [b.id, b]));
 
   // Energía
   const ENERGY_LEVELS = [
@@ -727,6 +809,7 @@
         budgets: p.budgets || {},
         customCategories: { income: (p.customCategories?.income)||[], expense: (p.customCategories?.expense)||[] },
         netWorthHistory: p.netWorthHistory || [],
+        coach: { ...defaultState.coach, ...(p.coach || {}), distribution: { ...defaultState.coach.distribution, ...((p.coach && p.coach.distribution) || {}) } },
       };
     } catch { return defaultState; }
   }
@@ -836,6 +919,21 @@
         s.transactions.unshift(t);
         const acc = s.accounts[t.account];
         if (acc) acc.balance = (acc.balance || 0) + (t.type === 'income' ? +t.amount : -+t.amount);
+        // Coach: si es ingreso a Personal, ratchea el tope hacia arriba
+        if (s.coach && s.coach.enabled && s.coach.autoRatchet && t.type === 'income' && t.account === 'personal') {
+          const newBalance = s.accounts.personal?.balance || 0;
+          const newTope = Math.round(newBalance * 0.8);
+          if (newTope > (s.coach.topePersisted || 0)) {
+            s.coach.topePersisted = newTope;
+            s.coach.topePersistedUpdatedAt = Date.now();
+          }
+          // Si la categoría es "Salario VDL" (o contiene 'Salario'), reinicia el período y avanza nextPayDate
+          if (typeof t.category === 'string' && /salario/i.test(t.category)) {
+            s.coach.periodStart = t.date;
+            const days = s.coach.paySchedule === 'mensual' ? 30 : 14;
+            s.coach.nextPayDate = addDays(t.date, days);
+          }
+        }
         return s;
       }),
       updateTransaction: (id, patch) => update(s => {
@@ -1125,6 +1223,44 @@
         else s.netWorthHistory.push(entry);
         // mantenemos máximo 365 días
         if (s.netWorthHistory.length > 365) s.netWorthHistory = s.netWorthHistory.slice(-365);
+        return s;
+      }),
+
+      /* Coach financiero */
+      setCoachConfig: (patch) => update(s => {
+        s.coach = { ...defaultState.coach, ...(s.coach||{}), ...patch };
+        if (patch.distribution) s.coach.distribution = { ...defaultState.coach.distribution, ...(s.coach.distribution||{}), ...patch.distribution };
+        return s;
+      }),
+      enableCoach: (config) => update(s => {
+        s.coach = { ...defaultState.coach, ...(s.coach||{}), ...(config||{}), enabled: true };
+        if (!s.coach.periodStart) s.coach.periodStart = todayISO();
+        const balance = s.accounts.personal?.balance || 0;
+        if (!s.coach.topePersisted || s.coach.topePersisted < balance * 0.8) {
+          s.coach.topePersisted = Math.round(balance * 0.8);
+          s.coach.topePersistedUpdatedAt = Date.now();
+        }
+        return s;
+      }),
+      disableCoach: () => update(s => { if (s.coach) s.coach.enabled = false; return s; }),
+      coachRestartPeriod: (date = todayISO()) => update(s => {
+        s.coach = s.coach || {};
+        s.coach.periodStart = date;
+        const days = s.coach.paySchedule === 'mensual' ? 30 : 14;
+        s.coach.nextPayDate = addDays(date, days);
+        return s;
+      }),
+      coachResetTope: () => update(s => {
+        s.coach = s.coach || {};
+        const balance = s.accounts.personal?.balance || 0;
+        s.coach.topePersisted = Math.round(balance * 0.8);
+        s.coach.topePersistedUpdatedAt = Date.now();
+        return s;
+      }),
+      // Asignar/cambiar bucket coach a una transacción existente
+      setTxBucket: (id, bucket) => update(s => {
+        const t = (s.transactions || []).find(x => x.id === id);
+        if (t) t.bucket = bucket;
         return s;
       }),
 
@@ -1826,39 +1962,41 @@
   function Input({ className='', icon, ...rest }) {
     return (
       <div className={`relative ${className}`}>
-        {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><Icon name={icon} size={16}/></span>}
-        <input className={`w-full h-11 ${icon ? 'pl-9':'pl-4'} pr-4 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ink/10 dark:focus:ring-white/10 transition`} {...rest}/>
+        {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"><Icon name={icon} size={16}/></span>}
+        <input className={`vi-input w-full h-11 ${icon ? 'pl-9':'pl-4'} pr-4 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent-blue/30 dark:focus:ring-accent-blue/40`} {...rest}/>
       </div>
     );
   }
   function Select({ className='', children, ...rest }) {
     return (
       <div className={`relative ${className}`}>
-        <select className="w-full h-11 px-4 pr-10 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-ink/10 dark:focus:ring-white/10" {...rest}>{children}</select>
+        <select className="vi-input w-full h-11 px-4 pr-10 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-accent-blue/30 dark:focus:ring-accent-blue/40 cursor-pointer" {...rest}>{children}</select>
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"><Icon name="chevron-down" size={16}/></span>
       </div>
     );
   }
   function Textarea({ className='', rows=3, ...rest }) {
-    return <textarea rows={rows} className={`w-full px-4 py-3 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ink/10 dark:focus:ring-white/10 ${className}`} {...rest}/>;
+    return <textarea rows={rows} className={`vi-input w-full px-4 py-3 rounded-2xl bg-paper-softer dark:bg-ink-soft text-ink dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent-blue/30 dark:focus:ring-accent-blue/40 ${className}`} {...rest}/>;
   }
 
   function Sheet({ open, onClose, title, children, footer }) {
-    // Bloquear scroll del body — cleanup robusto
+    // Bloquear scroll del body + keyboard support (Esc cierra)
     useEffect(() => {
       if (!open) return;
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose && onClose(); } };
+      document.addEventListener('keydown', onKey);
       const restore = () => { try { document.body.style.overflow = prev || ''; } catch (_) {} };
-      return () => { restore(); };
-    }, [open]);
+      return () => { restore(); document.removeEventListener('keydown', onKey); };
+    }, [open, onClose]);
 
     if (!open) return null;
 
     // Portal al body: escapa cualquier `transform` o `filter` en ancestros que rompería `position:fixed`.
     const node = (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm anim-in" onClick={onClose}/>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm anim-backdrop" onClick={onClose}/>
         <div className="relative w-full sm:max-w-lg bg-white dark:bg-ink-soft rounded-t-4xl sm:rounded-3xl shadow-lift anim-sheet sm:anim-scale-in flex flex-col"
              style={{paddingBottom:'env(safe-area-inset-bottom)', maxHeight:'92vh'}}>
           <div className="sm:hidden sheet-handle shrink-0"/>
@@ -2367,7 +2505,7 @@
 
   function SyncDot({ status }) {
     const c = status==='synced' ? '#30D158' : status==='syncing' ? '#FF9F0A' : status==='error' ? '#FF453A' : '#8E8E93';
-    return <span className="inline-flex h-2 w-2 rounded-full" style={{background:c, boxShadow: status==='syncing' ? '0 0 12px '+c : 'none'}}/>;
+    return <span className={`inline-flex h-2 w-2 rounded-full ${status==='syncing' ? 'sync-pulse' : ''}`} style={{background:c, transition:'background .25s ease-out'}}/>;
   }
   function SyncLabel({ status }) { return { synced:'Sincronizado', syncing:'Sincronizando…', error:'Error de sync', idle:'Local', offline:'Sin red' }[status] || 'Local'; }
 
@@ -2789,8 +2927,11 @@
     const [recurring, setRecurring] = useState(false);
     const [recurringPeriod, setRecurringPeriod] = useState('monthly');
     const [verified, setVerified] = useState(false);
+    const [bucket, setBucket] = useState(null);
     const isEdit = !!existing;
     const cats = useMemo(() => categoriesFor(state, type), [state, type]);
+    const coachOn = !!state.coach?.enabled;
+    const showBuckets = coachOn && type === 'expense' && account === 'personal';
 
     // Live preview del saldo de la cuenta seleccionada después de aplicar el cambio
     const preview = useMemo(() => {
@@ -2821,12 +2962,14 @@
         setRecurring(!!existing.recurring);
         setRecurringPeriod(existing.recurringPeriod || 'monthly');
         setVerified(!!existing.verified);
+        setBucket(existing.bucket || null);
       } else {
         const en = enabledAccounts(state);
         setAccount(en[0]?.id || 'personal');
         setType('expense');
         setAmount(''); setCategory(categoriesFor(state, 'expense')[0] || 'Comida');
         setNote(''); setDate(todayISO()); setRecurring(false); setRecurringPeriod('monthly'); setVerified(false);
+        setBucket(null);
       }
     }, [open, existing]);
     useEffect(() => {
@@ -2835,8 +2978,17 @@
 
     const save = () => {
       const a = parseFloat(amount); if (!a||a<=0) return;
+      // Coach: si aplica, validar tope antes de guardar gasto
+      if (showBuckets && !isEdit) {
+        const cc = coachCompute(state);
+        const wouldBreakTope = (cc.balance - a) < cc.tope;
+        if (wouldBreakTope) {
+          if (!confirm(`Atención: este gasto rompería el tope (₡${Math.round(cc.tope).toLocaleString('es-CR')}). Quedarías por debajo del piso intocable. ¿Continuar igual?`)) return;
+        }
+      }
       try {
         const payload = { account, type, amount: a, category, note, date, recurring, recurringPeriod, verified };
+        if (showBuckets && bucket) payload.bucket = bucket;
         const accName = state.accounts[account]?.name || account;
         if (isEdit) {
           actions.updateTransaction(existing.id, payload); SoundFX.success();
@@ -2847,6 +2999,12 @@
           // Hito: primera transacción
           const txCount = (state.transactions || []).length + 1;
           if (txCount === 1) { fireConfetti({ count: 90 }); SoundFX.milestone?.(); Toast.success('¡Tu primer movimiento registrado!', { duration: 4500 }); }
+          // Coach: alerta si después del gasto el margen quedó bajo
+          if (showBuckets) {
+            const newBalance = (state.accounts.personal?.balance || 0) - a;
+            const cc2 = coachCompute({ ...state, accounts: { ...state.accounts, personal: { ...state.accounts.personal, balance: newBalance } } });
+            if (cc2.onAlert) Toast.warning(`Margen bajo: quedan ${fmtMoney(cc2.margin)} hasta el tope`, { duration: 4500 });
+          }
         }
         // Glow pulse en main view: dispara animación
         const ev = new CustomEvent('vida:balance-changed', { detail: { account, delta: type==='income'?a:-a } });
@@ -2945,6 +3103,26 @@
               <div className="text-xs text-zinc-500 mt-0.5">Marca cuando hayas conciliado este movimiento contra tu estado de cuenta.</div>
             </div>
           </label>
+
+          {/* Coach bucket selector — solo si coach activo y gasto a personal */}
+          {showBuckets && (
+            <div className="rounded-2xl bg-paper-softer dark:bg-ink-softer p-4">
+              <div className="text-sm font-medium inline-flex items-center gap-1.5 mb-2">
+                <Icon name="compass" size={13} className="text-accent-blue"/> ¿De qué bolsa sale este gasto?
+              </div>
+              <div className="text-[11px] text-zinc-500 mb-3 leading-relaxed">El Coach descuenta de la categoría correspondiente y mantiene tu tope.</div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {COACH_BUCKETS.map(b => (
+                  <button key={b.id} onClick={()=>{SoundFX.tap(); setBucket(bucket===b.id?null:b.id);}}
+                          className="press-spring py-2.5 rounded-xl text-[11px] font-semibold flex flex-col items-center justify-center gap-1 transition"
+                          style={bucket===b.id ? { background: b.color, color: '#fff', boxShadow: `0 4px 14px ${b.color}50` } : { background: 'rgba(0,0,0,.04)', color: '#71717a' }}>
+                    <Icon name={b.icon} size={14}/>
+                    <span style={{fontSize:'10px'}}>{b.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Sheet>
     );
@@ -3852,6 +4030,277 @@
     );
   }
 
+  /* =========================================================
+     COACH FINANCIERO — Tope + distribución + alertas
+     ========================================================= */
+  function coachCompute(state) {
+    const c = state.coach || {};
+    const balance = state.accounts?.personal?.balance || 0;
+    const nakitBal = state.accounts?.nakit?.balance || 0;
+    // Pendientes fijos por pagar de la cuenta personal
+    const fixedPending = (state.pending || [])
+      .filter(p => p.fixed && p.direction === 'out' && p.status === 'pending' && p.account === 'personal')
+      .reduce((a, p) => a + +p.amount, 0);
+    // Tope: max entre el persistente y 80% del balance actual (si autoRatchet)
+    const topeAuto = Math.round(balance * 0.8);
+    const tope = c.autoRatchet ? Math.max(c.topePersisted || 0, topeAuto) : (c.topePersisted || topeAuto);
+    const margin = balance - tope;
+    const freeMoney = Math.max(0, margin - fixedPending);
+    const periodStart = c.periodStart || todayISO();
+    const dist = c.distribution || { ahorro:35, salidas:25, caprichos:20, colchon:20 };
+    const allocated = {
+      ahorro:    freeMoney * (dist.ahorro/100),
+      salidas:   freeMoney * (dist.salidas/100),
+      caprichos: freeMoney * (dist.caprichos/100),
+      colchon:   freeMoney * (dist.colchon/100),
+    };
+    const spent = { fijo:0, salidas:0, caprichos:0, ahorro:0, colchon:0 };
+    (state.transactions || []).forEach(t => {
+      if (t.type === 'expense' && t.account === 'personal' && t.date >= periodStart && t.bucket && spent[t.bucket] !== undefined) {
+        spent[t.bucket] += +t.amount;
+      }
+    });
+    const available = {
+      ahorro:    Math.round((allocated.ahorro    || 0) - (spent.ahorro    || 0)),
+      salidas:   Math.round((allocated.salidas   || 0) - (spent.salidas   || 0)),
+      caprichos: Math.round((allocated.caprichos || 0) - (spent.caprichos || 0)),
+      colchon:   Math.round((allocated.colchon   || 0) - (spent.colchon   || 0)),
+    };
+    const onAlert = c.enabled && margin < (c.alertThreshold || 15000);
+    const daysToNextPay = c.nextPayDate ? Math.max(0, daysBetween(todayISO(), c.nextPayDate)) : null;
+    return { config: c, balance, tope, margin, freeMoney, fixedPending, allocated, available, spent, nakitBal, hansShare: nakitBal/2, onAlert, daysToNextPay, periodStart };
+  }
+
+  function CoachPanel({ openConfig }) {
+    const { state, actions } = useStore();
+    const cc = useMemo(() => coachCompute(state), [state]);
+    const priv = !!state.settings?.privacy;
+    const showAmt = (n) => priv ? '••••' : fmtMoney(n);
+    if (!cc.config.enabled) return null;
+    return (
+      <Card className="p-5 anim-scale-in" style={{boxShadow:'inset 0 0 0 1px rgba(10,132,255,.18)', backgroundImage:'radial-gradient(120% 80% at 0% 0%, rgba(10,132,255,.06), transparent 55%)'}}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-2">
+            <Icon name="compass" size={13} className="text-accent-blue"/> Coach financiero
+          </div>
+          <button onClick={openConfig} className="press text-xs text-zinc-500 hover:text-ink dark:hover:text-white inline-flex items-center gap-1">
+            <Icon name="settings" size={12}/> Ajustar
+          </button>
+        </div>
+
+        {/* Saldo personal · Tope · Margen */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+          <div className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
+            <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"><Icon name="credit-card" size={11}/> Saldo</div>
+            <div className="mt-1 font-semibold ticker text-[15px] sm:text-base truncate">{showAmt(cc.balance)}</div>
+          </div>
+          <div className="p-3 rounded-2xl" style={{background:'rgba(255,69,58,.08)', boxShadow:'inset 0 0 0 1px rgba(255,69,58,.15)'}}>
+            <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"><Icon name="lock" size={11} className="text-accent-red"/> Tope</div>
+            <div className="mt-1 font-semibold ticker text-[15px] sm:text-base truncate" style={{color:'#FF453A'}}>{showAmt(cc.tope)}</div>
+          </div>
+          <div className="p-3 rounded-2xl" style={{background: cc.onAlert ? 'rgba(255,159,10,.10)' : 'rgba(48,209,88,.08)', boxShadow: cc.onAlert ? 'inset 0 0 0 1px rgba(255,159,10,.25)' : 'inset 0 0 0 1px rgba(48,209,88,.18)'}}>
+            <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"><Icon name={cc.onAlert?'alert-triangle':'check-circle'} size={11} className={cc.onAlert?'text-accent-warning':'text-accent-success'}/> Margen</div>
+            <div className="mt-1 font-semibold ticker text-[15px] sm:text-base truncate" style={{color: cc.onAlert ? '#FF9F0A' : '#30D158'}}>{showAmt(cc.margin)}</div>
+          </div>
+        </div>
+
+        {/* Alerta */}
+        {cc.onAlert && (
+          <div className="mb-4 px-3 py-2.5 rounded-xl text-[12px] leading-snug flex items-start gap-2" style={{background:'rgba(255,159,10,.10)', color:'#FF9F0A'}}>
+            <Icon name="alert-triangle" size={13} className="shrink-0 mt-0.5"/>
+            <span>Estás cerca del piso. Quedan <strong>{showAmt(cc.margin)}</strong> antes del tope. {cc.daysToNextPay!=null && `Próximo pago en ${cc.daysToNextPay} días.`} No gastes hasta entonces.</span>
+          </div>
+        )}
+
+        {/* Distribución del margen libre */}
+        <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">
+          Distribución del margen libre {cc.fixedPending>0 && <span className="normal-case font-normal text-zinc-400 tracking-normal">· menos {fmtMoney(cc.fixedPending)} fijos</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { id:'ahorro',    label:'Ahorro/inversión', icon:'piggy-bank', color:'#30D158' },
+            { id:'salidas',   label:'Salidas',          icon:'heart',      color:'#FF375F' },
+            { id:'caprichos', label:'Caprichos',        icon:'sparkles',   color:'#FF9F0A' },
+            { id:'colchon',   label:'Colchón',          icon:'shield',     color:'#0A84FF' },
+          ].map(b => {
+            const av = cc.available[b.id] || 0;
+            const al = cc.allocated[b.id] || 0;
+            const sp = cc.spent[b.id] || 0;
+            const pct = al > 0 ? Math.min(100, Math.max(0, (sp/al)*100)) : 0;
+            const negative = av < 0;
+            return (
+              <div key={b.id} className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
+                <div className="flex items-center gap-2">
+                  <span className="h-6 w-6 grid place-items-center rounded-lg shrink-0" style={{background:b.color+'22', color:b.color}}>
+                    <Icon name={b.icon} size={12}/>
+                  </span>
+                  <span className="text-[11px] text-zinc-500 truncate flex-1">{b.label}</span>
+                  <span className="text-[10px] tabular text-zinc-400">{cc.config.distribution[b.id]||0}%</span>
+                </div>
+                <div className={`mt-1.5 font-semibold ticker text-[14px] truncate`} style={{color: negative ? '#FF453A' : b.color}}>
+                  {showAmt(av)}
+                </div>
+                {al > 0 && (
+                  <div className="mt-1.5 h-1 rounded-full bg-white/40 dark:bg-black/20 overflow-hidden">
+                    <div className="h-full rounded-full" style={{width: pct+'%', background: negative ? '#FF453A' : b.color}}/>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Nakit + próximo pago */}
+        <div className="mt-4 pt-4 hairline-b grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
+            <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"><Icon name="gem" size={11} className="text-accent-orange"/> Fondo Nakit</div>
+            <div className="mt-1 font-semibold ticker text-[14px] truncate">{showAmt(cc.nakitBal)}</div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">tu mitad: {priv?'••••':fmtMoney(cc.hansShare)}</div>
+          </div>
+          <div className="p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
+            <div className="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"><Icon name="calendar-clock" size={11} className="text-accent-blue"/> Próximo pago</div>
+            <div className="mt-1 font-semibold text-[14px] truncate">
+              {cc.config.nextPayDate ? fmtDate(cc.config.nextPayDate, {day:'numeric',month:'short'}) : '—'}
+            </div>
+            <div className="text-[10px] text-zinc-400 mt-0.5">{cc.daysToNextPay!=null ? `en ${cc.daysToNextPay} días` : 'configurar'}</div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  function CoachSetup({ open, onClose }) {
+    const { state, actions } = useStore();
+    const c = state.coach || {};
+    const [hourlyRate, setHourlyRate] = useState(c.hourlyRate || 2000);
+    const [hoursPerPay, setHoursPerPay] = useState(c.hoursPerPay || 30);
+    const [paySchedule, setPaySchedule] = useState(c.paySchedule || 'quincenal');
+    const [nextPayDate, setNextPayDate] = useState(c.nextPayDate || addDays(todayISO(), 14));
+    const [dist, setDist] = useState(c.distribution || { ahorro:35, salidas:25, caprichos:20, colchon:20 });
+    const [createFixed, setCreateFixed] = useState(!c.enabled);
+    const [alertThreshold, setAlertThreshold] = useState(c.alertThreshold || 15000);
+    useEffect(() => {
+      if (!open) return;
+      setHourlyRate(c.hourlyRate || 2000);
+      setHoursPerPay(c.hoursPerPay || 30);
+      setPaySchedule(c.paySchedule || 'quincenal');
+      setNextPayDate(c.nextPayDate || addDays(todayISO(), 14));
+      setDist(c.distribution || { ahorro:35, salidas:25, caprichos:20, colchon:20 });
+      setAlertThreshold(c.alertThreshold || 15000);
+      setCreateFixed(!c.enabled);
+    }, [open]);
+    const distSum = (dist.ahorro||0)+(dist.salidas||0)+(dist.caprichos||0)+(dist.colchon||0);
+    const distOk = distSum === 100;
+    const expectedPay = (hourlyRate||0) * (hoursPerPay||0);
+    const save = () => {
+      if (!distOk) { Toast.error('La distribución debe sumar 100%'); return; }
+      const config = {
+        hourlyRate: +hourlyRate || 2000,
+        hoursPerPay: +hoursPerPay || 30,
+        paySchedule,
+        nextPayDate: nextPayDate || null,
+        distribution: dist,
+        alertThreshold: +alertThreshold || 15000,
+      };
+      if (!c.enabled) {
+        actions.enableCoach(config);
+        // Crear pendientes fijos sugeridos
+        if (createFixed) {
+          const today = todayISO();
+          const has = (state.pending||[]).some(p => p.fixed && /mac|cuota/i.test(p.title));
+          if (!has) {
+            actions.addPending({ direction:'out', title:'Cuota Mac', amount:31950, account:'personal', category:'Materiales', expectedDate: today, fixed:true, recurring:true, recurringPeriod:'monthly', note:'Computadora' });
+            actions.addPending({ direction:'out', title:'iCloud iPhone', amount:1350, account:'personal', category:'Suscripciones', expectedDate: today, fixed:true, recurring:true, recurringPeriod:'monthly' });
+          }
+        }
+        Toast.success('Coach activado', { title:'Listo', duration: 3000 });
+        SoundFX.success(); fireConfetti({ count: 50 });
+      } else {
+        actions.setCoachConfig(config);
+        Toast.success('Configuración guardada');
+      }
+      onClose();
+    };
+    const distSlider = (key, label, color) => (
+      <div>
+        <div className="flex justify-between text-[12px] mb-1.5">
+          <span className="text-zinc-500">{label}</span>
+          <span className="tabular font-semibold" style={{color}}>{dist[key]||0}%</span>
+        </div>
+        <input type="range" min="0" max="80" step="5" value={dist[key]||0}
+               onChange={e=>setDist(d => ({ ...d, [key]: +e.target.value }))}
+               className="w-full" style={{accentColor: color}}/>
+      </div>
+    );
+    return (
+      <Sheet open={open} onClose={onClose} title={c.enabled ? 'Configurar Coach' : 'Activar Coach financiero'}
+             footer={
+               <div className="flex justify-end gap-2 items-center">
+                 {c.enabled && <Button variant="ghost" onClick={()=>{ if (confirm('¿Desactivar Coach? Tus datos no se borran.')) { actions.disableCoach(); Toast.info('Coach desactivado'); onClose(); } }} className="text-accent-red mr-auto"><Icon name="ban" size={16}/></Button>}
+                 <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                 <Button onClick={save}>{c.enabled ? 'Guardar' : 'Activar'}</Button>
+               </div>
+             }>
+        <div className="space-y-5">
+          {!c.enabled && (
+            <div className="p-3 rounded-xl bg-accent-blue/8 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-300" style={{boxShadow:'inset 0 0 0 1px rgba(10,132,255,.18)'}}>
+              <strong className="text-accent-blue">Coach</strong> calcula tu <strong>tope</strong> (80% del saldo, nunca baja) y distribuye lo que sobra entre Ahorro, Salidas, Caprichos y Colchón. Ideal para no romper el piso entre quincenas.
+            </div>
+          )}
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">Tu pago</div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block"><span className="text-xs text-zinc-500">Tarifa por hora</span><Input type="number" inputMode="decimal" value={hourlyRate} onChange={e=>setHourlyRate(e.target.value)} icon="banknote" className="mt-1"/></label>
+              <label className="block"><span className="text-xs text-zinc-500">Horas por pago</span><Input type="number" inputMode="decimal" value={hoursPerPay} onChange={e=>setHoursPerPay(e.target.value)} className="mt-1"/></label>
+            </div>
+            <div className="mt-2 text-[12px] text-zinc-500">Estimado por pago: <span className="tabular font-semibold text-ink dark:text-white">{fmtMoney(expectedPay)}</span></div>
+          </div>
+          <div>
+            <span className="text-xs text-zinc-500">Frecuencia</span>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {[['quincenal','Quincenal'],['mensual','Mensual']].map(([k,l])=>(
+                <button key={k} onClick={()=>{SoundFX.tap(); setPaySchedule(k);}} className={`press h-11 rounded-xl text-sm font-medium ${paySchedule===k?'bg-ink text-white dark:bg-white dark:text-ink':'bg-paper-softer dark:bg-ink-softer'}`}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <label className="block">
+            <span className="text-xs text-zinc-500">Próximo pago</span>
+            <Input type="date" value={nextPayDate} onChange={e=>setNextPayDate(e.target.value)} className="mt-1"/>
+          </label>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Distribución del margen libre</div>
+              <div className={`text-[11px] tabular font-semibold ${distOk?'text-accent-success':'text-accent-red'}`}>{distSum}%</div>
+            </div>
+            <div className="space-y-3 p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer">
+              {distSlider('ahorro',    'Ahorro/inversión', '#30D158')}
+              {distSlider('salidas',   'Salidas con novia', '#FF375F')}
+              {distSlider('caprichos', 'Caprichos',         '#FF9F0A')}
+              {distSlider('colchon',   'Colchón',           '#0A84FF')}
+            </div>
+            {!distOk && <div className="text-[11px] text-accent-red mt-2">Debe sumar exactamente 100%.</div>}
+          </div>
+
+          <label className="block">
+            <span className="text-xs text-zinc-500">Alertarme cuando el margen baje de</span>
+            <Input type="number" inputMode="decimal" value={alertThreshold} onChange={e=>setAlertThreshold(e.target.value)} icon="alert-triangle" className="mt-1"/>
+          </label>
+
+          {!c.enabled && (
+            <label className="flex items-start gap-3 p-3 rounded-2xl bg-paper-softer dark:bg-ink-softer cursor-pointer">
+              <input type="checkbox" checked={createFixed} onChange={e=>setCreateFixed(e.target.checked)} className="mt-0.5 h-4 w-4 accent-accent-blue"/>
+              <div>
+                <div className="font-medium text-sm">Crear gastos fijos sugeridos</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">Cuota Mac (₡31.950) e iCloud iPhone (₡1.350) como pendientes recurrentes mensuales en Personal.</div>
+              </div>
+            </label>
+          )}
+        </div>
+      </Sheet>
+    );
+  }
+
   function FinanceResumen({ openNewTx, openEditTx, openNewTransfer }) {
     const { state, actions } = useStore();
     const today = todayISO();
@@ -3862,6 +4311,8 @@
     const priv = !!state.settings?.privacy;
     const showAmt = (n) => priv ? fmtMoneyMasked : fmtMoney(n);
     const togglePriv = () => { actions.setSettings({ privacy: !priv }); SoundFX.tap(); vibrate(8); };
+    const [coachOpen, setCoachOpen] = useState(false);
+    const coachEnabled = !!state.coach?.enabled;
     const [glow, setGlow] = useState(null); // 'good' | 'bad' | null
     useEffect(() => {
       const onChange = (e) => {
@@ -3917,10 +4368,30 @@
           </div>
         </Card>
 
+        {/* Coach panel (si está activo) o CTA para activarlo */}
+        {coachEnabled ? (
+          <CoachPanel openConfig={()=>setCoachOpen(true)}/>
+        ) : (
+          <Card className="p-5 anim-scale-in" style={{boxShadow:'inset 0 0 0 1px rgba(10,132,255,.2)', backgroundImage:'radial-gradient(120% 80% at 0% 0%, rgba(10,132,255,.08), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(94,92,230,.06), transparent 55%)'}}>
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 grid place-items-center rounded-2xl text-white shrink-0" style={{background:'linear-gradient(135deg,#0A84FF,#5E5CE6)'}}>
+                <Icon name="compass" size={18}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold">Activá el Coach financiero</div>
+                <div className="text-[12px] text-zinc-500 mt-1 leading-relaxed">Te calcula un <strong>tope intocable</strong> (80% del saldo, nunca baja) y te dice cuánto podés gastar libre, distribuido en Ahorro, Salidas, Caprichos y Colchón.</div>
+                <Button size="sm" className="mt-3" onClick={()=>setCoachOpen(true)}><Icon name="sparkles" size={14}/> Configurar</Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Insights */}
         <Section title="Consejos · análisis automático">
           <InsightsPanel openTransfer={openNewTransfer}/>
         </Section>
+
+        <CoachSetup open={coachOpen} onClose={()=>setCoachOpen(false)}/>
 
         {/* Forecast + NetWorth — stack en mobile, dos col en desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
